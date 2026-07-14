@@ -1,0 +1,16 @@
+.git
+.github
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/node_modules
+frontend/dist
+dist-electron
+backend/reports
+.env
+.env.*
+!.env.example
+*.db
+.cursor
+terminals
+agent-transcripts
