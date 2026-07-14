@@ -1,0 +1,457 @@
+/* Recording Studio — three-pane IDE workspace */
+
+.workspace-behind-studio {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.recording-mode-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+}
+
+.recording-studio {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* ── Toolbar ── */
+.recording-studio-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.rst-left,
+.rst-center,
+.rst-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rst-back { gap: 6px; }
+
+.rst-rec-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.rst-rec-indicator.live { color: #ef4444; }
+
+.rst-device { font-weight: 600; font-size: 13px; }
+
+.rst-timer {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.rst-steps { font-size: 12px; color: var(--text-hint); }
+
+.rst-lang-select { font-size: 12px; max-width: 220px; }
+
+.rst-framework-label { font-size: 11px; color: var(--text-hint); }
+
+.rst-layout-group {
+  display: inline-flex;
+  gap: 2px;
+  border-left: 1px solid var(--border-subtle);
+  padding-left: 8px;
+  margin-left: 4px;
+}
+
+/* ── Main three-pane area ── */
+.recording-studio-main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.triple-split-pane {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.triple-split-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.triple-split-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border-subtle);
+  transition: background 0.15s;
+}
+
+.triple-split-handle:hover {
+  background: var(--accent-primary, #1e88e5);
+}
+
+.studio-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.studio-pane-code { border-right: none; }
+
+.rst-panel-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-hint);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+}
+
+.rst-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  text-transform: none;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+}
+
+.rst-timeline-count {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+
+.readonly-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  text-transform: uppercase;
+}
+
+/* ── Left: Screenshot ── */
+.studio-screenshot-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-screenshot-body .screenshot-panel {
+  height: 100%;
+  border: none;
+  border-radius: 0;
+}
+
+.studio-screenshot-body .panel-header.compact-header {
+  justify-content: flex-end;
+  padding: 4px 8px;
+  min-height: 32px;
+}
+
+.recording-studio-element-tip {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+}
+
+.recording-studio-element-tip strong {
+  color: var(--text-hint);
+  margin-right: 4px;
+  font-weight: 600;
+}
+
+.studio-package-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-hint);
+}
+
+.studio-package-bar strong {
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+/* ── Middle: Actions timeline ── */
+.studio-pane-actions .recording-action-panel {
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+}
+
+.recording-timeline.studio-actions {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.recording-timeline.studio-actions.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.recording-timeline.studio-actions.empty .hint {
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.recording-timeline.virtual {
+  position: relative;
+}
+
+.virtual-scroll-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-scroll-window {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 4px 8px;
+}
+
+.studio-action-card {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  box-sizing: border-box;
+}
+
+.studio-action-card:hover {
+  border-color: var(--accent-primary, #1e88e5);
+}
+
+.studio-action-card.selected {
+  border-color: var(--accent-primary, #1e88e5);
+  box-shadow: 0 0 0 1px var(--accent-primary, #1e88e5);
+  background: var(--bg-secondary);
+}
+
+.studio-action-card.disabled {
+  opacity: 0.5;
+}
+
+.studio-action-card.review {
+  border-color: #f59e0b;
+}
+
+.studio-action-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.studio-action-header .step-num {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--accent-primary, #1e88e5);
+}
+
+.studio-action-header .step-action {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.studio-action-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.studio-action-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.studio-action-body .step-locator {
+  font-size: 10px;
+  color: var(--accent-primary, #1e88e5);
+  background: transparent;
+}
+
+.studio-action-body .step-element {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.studio-action-body .step-time {
+  font-size: 10px;
+  color: var(--text-hint);
+  font-family: var(--font-mono, monospace);
+}
+
+.studio-action-comment {
+  margin-top: 6px;
+}
+
+.studio-action-comment input {
+  width: 100%;
+  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.step-review {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #f59e0b;
+  margin-top: 4px;
+}
+
+.step-status {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.step-status.success { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.step-status.failed { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+/* ── Right: Code editor ── */
+.studio-pane-code .monaco-code-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.studio-pane-code .monaco-code-editor > section,
+.studio-pane-code .monaco-code-editor > div {
+  height: 100% !important;
+}
+
+.monaco-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-hint);
+  font-size: 13px;
+}
+
+/* ── Status bar ── */
+.recording-studio-statusbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 4px 16px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+}
+
+.recording-studio-statusbar strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+body.is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+@media (max-width: 1200px) {
+  .triple-split-pane {
+    flex-direction: column;
+  }
+
+  .triple-split-panel {
+    width: 100% !important;
+    height: 33%;
+    flex: 1 !important;
+  }
+
+  .triple-split-handle {
+    width: 100%;
+    height: 5px;
+    cursor: row-resize;
+  }
+}
+
+@media (max-width: 768px) {
+  .recording-studio-toolbar { padding: 6px 10px; }
+  .rst-framework-label { display: none; }
+  .recording-studio-statusbar { display: none; }
+}

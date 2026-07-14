@@ -1,0 +1,82 @@
+{
+  "name": "droidlens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DroidLens — Professional Android UI Inspector for uiautomator2",
+  "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "predev": "bash scripts/ensure-node.sh",
+    "predev:electron": "bash scripts/ensure-node.sh",
+    "preinstall": "node -e \"const m=+process.versions.node.split('.')[0];if(m<18){console.warn('\\n⚠ DroidLens requires Node.js 18+. Current: '+process.version+'\\n  Run: nvm install 20 && nvm use 20\\n  Or:  bash scripts/install-all.sh\\n');}\" || true",
+    "dev": "npx concurrently -k \"npm run dev:backend\" \"npx wait-on -t 60000 http-get://127.0.0.1:8765/health && npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "predev:backend": "bash scripts/ensure-backend-port.sh",
+    "dev:backend": "bash scripts/run-backend.sh",
+    "dev:stop": "bash scripts/stop-backend.sh",
+    "dev:electron": "bash scripts/dev-electron.sh",
+    "build:frontend": "cd frontend && npm run build",
+    "build:electron": "npm run build:frontend && npx electron-builder",
+    "electron": "npx electron .",
+    "test:backend": "cd backend && PYTHONPATH=. python3 -m pytest -v",
+    "generate:icons": "python3 scripts/generate-brand-assets.py",
+    "install:all": "bash scripts/install-all.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.droidlens.desktop",
+    "productName": "DroidLens",
+    "copyright": "Copyright © DroidLens",
+    "icon": "assets/branding/icon.png",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/.pytest_cache/**",
+          "!**/tests/**"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "assets/branding/icons"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/branding/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/branding/icon.ico"
+    }
+  },
+  "dependencies": {
+    "ngrok": "^4.3.3"
+  }
+}
