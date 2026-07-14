@@ -150,14 +150,23 @@ export class FeatureAccessManager {
   }
 }
 
-export function trialBannerText(license: LicenseInfo | null): string | null {
+export function trialBannerText(
+  license: LicenseInfo | null,
+  subscriptionEnabled = true,
+): string | null {
+  if (!subscriptionEnabled) return null
   if (!license || license.status !== 'trial_active') return null
   const days = license.days_remaining ?? 0
   return `Trial Active — ${days} day${days === 1 ? '' : 's'} remaining`
 }
 
-export function licenseBadgeText(license: LicenseInfo | null, isLoggedIn: boolean): string | null {
+export function licenseBadgeText(
+  license: LicenseInfo | null,
+  isLoggedIn: boolean,
+  subscriptionEnabled = true,
+): string | null {
   if (!isLoggedIn || !license) return 'Guest'
+  if (!subscriptionEnabled) return 'Premium'
   if (license.status === 'lifetime') return 'Lifetime License'
   if (license.status === 'payment_pending') return 'Payment Pending'
   if (license.status === 'trial_active') {
@@ -167,7 +176,15 @@ export function licenseBadgeText(license: LicenseInfo | null, isLoggedIn: boolea
   return license.plan_name
 }
 
-export function dashboardStatusText(license: LicenseInfo | null, isLoggedIn: boolean): string | null {
+export function dashboardStatusText(
+  license: LicenseInfo | null,
+  isLoggedIn: boolean,
+  subscriptionEnabled = true,
+): string | null {
+  if (!subscriptionEnabled) {
+    if (!isLoggedIn) return null
+    return '✅ Premium Access (Development Mode)'
+  }
   if (!isLoggedIn || !license) return '🔒 Premium Locked'
   if (license.status === 'lifetime') return '✅ Lifetime Activated'
   if (license.status === 'payment_pending') return '⌛ Payment Pending'

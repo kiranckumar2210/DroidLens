@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useSystemConfig } from '../auth/SystemConfigContext'
 import { dashboardStatusText, trialBannerText } from '../auth/features'
 import { usePremiumGate } from '../auth/usePremiumGate'
 import type { AdbStatus, DeviceInfo } from '../types'
@@ -48,7 +49,9 @@ export default function Dashboard({
   theme, onThemeChange, onEnterLive, onEnterOffline, onEnterMock,
   onOpenAccount, onOpenSubscription, onOpenLogin, onOpenRegister, onOpenAbout,
 }: Props) {
-  const { isLoggedIn, license, user, isAdmin } = useAuth()
+  const { isLoggedIn, license, user, isAdmin, canAccess } = useAuth()
+  const { config } = useSystemConfig()
+  const subscriptionOn = config.subscription_enabled
   const { gateOpen, gateAccess, requestFeature, closeGate } = usePremiumGate()
   const [adb, setAdb] = useState<AdbStatus | null>(null)
   const [devices, setDevices] = useState<DeviceInfo[]>([])
@@ -60,10 +63,10 @@ export default function Dashboard({
   const [recent, setRecent] = useState<RecentSession[]>(loadRecent)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const liveLocked = !isLoggedIn || !license?.has_premium
-  const offlineLocked = liveLocked
-  const trialText = trialBannerText(license)
-  const statusBanner = dashboardStatusText(license, isLoggedIn)
+  const liveLocked = !canAccess('live_inspection').allowed
+  const offlineLocked = !canAccess('xml_upload').allowed
+  const trialText = trialBannerText(license, subscriptionOn)
+  const statusBanner = dashboardStatusText(license, isLoggedIn, subscriptionOn)
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -168,10 +171,11 @@ export default function Dashboard({
         <div className="dashboard-auth-actions">
           {isLoggedIn ? (
             <>
-              {license?.status === 'lifetime' && <span className="license-pill lifetime">Lifetime License</span>}
-              {license?.status === 'payment_pending' && <span className="license-pill pending">Payment Pending</span>}
-              {trialText && <span className="license-pill trial">{trialText}</span>}
-              {license?.status === 'trial_expired' && <span className="license-pill expired">Trial Expired</span>}
+              {subscriptionOn && license?.status === 'lifetime' && <span className="license-pill lifetime">Lifetime License</span>}
+              {subscriptionOn && license?.status === 'payment_pending' && <span className="license-pill pending">Payment Pending</span>}
+              {subscriptionOn && trialText && <span className="license-pill trial">{trialText}</span>}
+              {subscriptionOn && license?.status === 'trial_expired' && <span className="license-pill expired">Trial Expired</span>}
+              {!subscriptionOn && <span className="license-pill lifetime">Premium</span>}
               <button type="button" className="btn-secondary btn-sm" onClick={onOpenAccount}>
                 <User size={14} /> {user?.full_name.split(' ')[0]}
               </button>
@@ -184,7 +188,9 @@ export default function Dashboard({
           ) : (
             <>
               <button type="button" className="btn-secondary btn-sm" onClick={onOpenLogin}>Sign In</button>
-              <button type="button" className="btn-primary btn-sm" onClick={onOpenRegister}>Free Trial</button>
+              <button type="button" className="btn-primary btn-sm" onClick={onOpenRegister}>
+                {subscriptionOn ? 'Free Trial' : 'Sign Up'}
+              </button>
             </>
           )}
           {onThemeChange && <ThemeSwitcher theme={theme} onChange={onThemeChange} />}
@@ -198,7 +204,8 @@ export default function Dashboard({
         {statusBanner && (
           <div
             className={`dashboard-status-banner ${
-              license?.status === 'lifetime' ? 'lifetime'
+              !subscriptionOn ? 'lifetime'
+              : license?.status === 'lifetime' ? 'lifetime'
               : license?.status === 'payment_pending' ? 'pending'
               : license?.status === 'trial_active' ? 'trial'
               : license?.status === 'trial_expired' ? 'expired'
@@ -231,7 +238,11 @@ export default function Dashboard({
             {expanded === 'live' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
                 {liveLocked && (
-                  <p className="locked-hint">Sign in and start your free trial to connect live devices.</p>
+                  <p className="locked-hint">
+                    {subscriptionOn
+                      ? 'Sign in and start your free trial to connect live devices.'
+                      : 'Sign in to connect live devices.'}
+                  </p>
                 )}
                 {adb && (
                   <div className="adb-summary">
@@ -310,7 +321,9 @@ export default function Dashboard({
 
         <footer className="dashboard-footer">
           {!isLoggedIn
-            ? 'Try the free sample project instantly. Create an account for a 7-day full-feature trial.'
+            ? subscriptionOn
+              ? 'Try the free sample project instantly. Create an account for a 7-day full-feature trial.'
+              : 'Try the free sample project instantly. Sign in for full premium access.'
             : 'Select an inspection mode to begin.'}
         </footer>
       </main>

@@ -12,7 +12,7 @@ import type { SystemConfig } from './types'
 
 const DEFAULT_CONFIG: SystemConfig = {
   subscription_enabled: false,
-  payment_enabled: true,
+  payment_enabled: false,
   trial_enabled: true,
   guest_access_enabled: true,
   login_required_for_live: true,

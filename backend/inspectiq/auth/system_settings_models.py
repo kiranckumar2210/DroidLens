@@ -39,7 +39,7 @@ class SubscriptionSettings(BaseModel):
 
 
 class PaymentSettings(BaseModel):
-    payment_enabled: bool = True
+    payment_enabled: bool = False
     trial_days: int = 7
     lifetime_price_inr: int = 199
     currency: str = "INR"
@@ -82,7 +82,7 @@ class SystemConfigPublic(BaseModel):
     """Public-facing config for frontend — no auth required."""
 
     subscription_enabled: bool = False
-    payment_enabled: bool = True
+    payment_enabled: bool = False
     trial_enabled: bool = True
     guest_access_enabled: bool = True
     login_required_for_live: bool = True

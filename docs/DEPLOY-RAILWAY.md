@@ -51,6 +51,7 @@ Open **Variables** and add:
 | `DROIDLENS_JWT_SECRET` | *(64-char random)* | `openssl rand -hex 32` |
 | `DROIDLENS_LICENSE_CACHE_SECRET` | *(64-char random)* | `openssl rand -hex 32` |
 | `DROIDLENS_ADMIN_EMAIL` | `info.kiranc@gmail.com` | First register → admin role |
+| `DROIDLENS_SUBSCRIPTION_ENABLED` | `false` | Keep subscription/trial/payment OFF by default |
 | `DROIDLENS_PUBLIC_URL` | `https://YOUR-APP.up.railway.app` | Set after Step 4 |
 
 ### Recommended for production
@@ -102,9 +103,9 @@ Railway injects `PORT` automatically — do not set it manually.
 1. Wait for the deploy to finish (green checkmark).
 2. Open your Railway URL in a browser.
 3. **Register** with the email set in `DROIDLENS_ADMIN_EMAIL`.
-4. Go to **`/admin/settings`**:
-   - Turn **Enable Subscription System** → **ON** (for production billing)
-   - Configure trial days, lifetime price, PhonePe toggle
+4. Go to **`/admin/settings`** to review licensing options.
+   - **Subscription is OFF by default** — all signed-in users get premium access.
+   - Turn **Enable Subscription System** → **ON** only when you are ready for trials and billing.
 5. Test login/logout with a second account.
 
 ---

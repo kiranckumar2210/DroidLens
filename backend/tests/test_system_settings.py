@@ -63,7 +63,7 @@ async def test_public_system_config_no_auth(settings_client):
     assert r.status_code == 200
     data = r.json()
     assert data["subscription_enabled"] is False
-    assert data["payment_enabled"] is True
+    assert data["payment_enabled"] is False
     assert data["trial_enabled"] is True
     assert data["guest_access_enabled"] is True
     assert "features" in data
