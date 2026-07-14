@@ -1,9 +1,9 @@
 import { loadAuthToken } from '../auth/tokenStorage'
-import { getApiBase } from '../api/baseUrl'
+import { getAuthApiBase, resolveApiBase } from '../api/baseUrl'
 
 async function adminRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const token = loadAuthToken()
-  const res = await fetch(`${getApiBase()}${path}`, {
+  const res = await fetch(`${resolveApiBase(path)}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -215,7 +215,7 @@ export const adminApi = {
     const qs = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
     const token = loadAuthToken()
-    const res = await fetch(`${getApiBase()}/admin/users/export?${qs}`, {
+    const res = await fetch(`${getAuthApiBase()}/admin/users/export?${qs}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) throw new Error('Export failed')
@@ -226,7 +226,7 @@ export const adminApi = {
     const qs = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
     const token = loadAuthToken()
-    const res = await fetch(`${getApiBase()}/admin/payments/export?${qs}`, {
+    const res = await fetch(`${getAuthApiBase()}/admin/payments/export?${qs}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) throw new Error('Export failed')

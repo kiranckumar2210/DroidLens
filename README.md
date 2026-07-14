@@ -287,6 +287,10 @@ When the subscription system is disabled (default for development), all authenti
 
 ### Deploy to Railway (production)
 
+See **[docs/DEPLOY-ELECTRON.md](docs/DEPLOY-ELECTRON.md)** for the desktop app (local ADB + optional cloud login).
+
+**Releasing to customers:** **[docs/RELEASE-TO-MARKET.md](docs/RELEASE-TO-MARKET.md)** — icons, build, GitHub Release, and customer install guide.
+
 See **[docs/DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md)** for step-by-step instructions to deploy from GitHub with persistent user accounts, HTTPS, and auto-deploy on push.
 
 ---

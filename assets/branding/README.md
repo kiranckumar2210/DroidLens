@@ -21,7 +21,8 @@
 | `icon.svg` | Square app mark (scalable) |
 | `icon.png` | 512×512 master raster |
 | `icon.ico` | Windows multi-size icon |
-| `icons/icon-*.png` | 16–512 px platform sizes |
+| `icons/{size}x{size}.png` | Linux electron-builder sizes (16–512) |
+| `icons/icon-*.png` | Legacy alias filenames |
 
 ## Regenerate PNG/ICO
 

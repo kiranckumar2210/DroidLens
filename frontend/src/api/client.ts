@@ -10,7 +10,7 @@ import type {
   Platform,
 } from '../types'
 
-import { getApiBase, getApiDocsUrl, getWsBase, isElectron } from './baseUrl'
+import { getApiBase, getApiDocsUrl, getWsBase, isElectron, resolveApiBase } from './baseUrl'
 
 export { getApiDocsUrl, getWsBase, isElectron }
 
@@ -32,14 +32,21 @@ async function refreshAuthOnce(): Promise<string | null> {
 }
 
 async function request<T>(path: string, options?: RequestInit, retry = true): Promise<T> {
-  const res = await fetch(`${getApiBase()}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-      ...options?.headers,
-    },
-    ...options,
-  })
+  const url = `${resolveApiBase(path)}${path}`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        ...options?.headers,
+      },
+      ...options,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Network error calling ${url}: ${msg}`)
+  }
   if (
     res.status === 401
     && retry

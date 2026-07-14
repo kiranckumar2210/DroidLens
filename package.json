@@ -31,7 +31,7 @@
     "build:electron:mac": "npm run build:frontend && npx electron-builder --mac",
     "electron": "npx electron .",
     "test:backend": "cd backend && PYTHONPATH=. python3 -m pytest -v",
-    "generate:icons": "python3 scripts/generate-brand-assets.py",
+    "generate:icons": "node scripts/run-python.cjs scripts/generate-brand-assets.py",
     "install:all": "bash scripts/install-all.sh"
   },
   "devDependencies": {

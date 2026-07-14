@@ -77,6 +77,12 @@ async def optional_user(authorization: Optional[str] = Header(None)) -> Optional
     return _auth.verify_token(token)
 
 
+def _bearer_token(authorization: Optional[str]) -> Optional[str]:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    return authorization.split(" ", 1)[1].strip()
+
+
 async def require_user(user: Optional[AuthUser] = Depends(optional_user)) -> AuthUser:
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -102,14 +108,16 @@ def _check_feature_enabled(feature_key: Optional[str]) -> None:
 
 async def require_premium(
     user: AuthUser = Depends(require_user),
+    authorization: Optional[str] = Header(None),
     feature: Optional[str] = None,
 ) -> AuthUser:
     _check_feature_enabled(feature)
     settings = get_system_settings_service().get_settings()
+    token = _bearer_token(authorization)
     if not settings.subscription.subscription_enabled:
         return user
-    if not _license.has_premium_access(user.id):
-        lic = _license.get_license(user.id)
+    if not _license.has_premium_access(user.id, access_token=token):
+        lic = _license.get_license(user.id, access_token=token)
         if lic.status.value == "trial_expired":
             raise HTTPException(
                 status_code=403,
@@ -125,8 +133,12 @@ def require_premium_feature(feature: str) -> Callable:
     return _dep
 
 
-async def require_live_access(user: Optional[AuthUser] = Depends(optional_user)) -> Optional[AuthUser]:
+async def require_live_access(
+    user: Optional[AuthUser] = Depends(optional_user),
+    authorization: Optional[str] = Header(None),
+) -> Optional[AuthUser]:
     settings = get_system_settings_service().get_settings()
+    token = _bearer_token(authorization)
     _check_feature_enabled("live_inspection")
 
     if settings.subscription.login_required_for_live:
@@ -134,8 +146,8 @@ async def require_live_access(user: Optional[AuthUser] = Depends(optional_user))
             raise HTTPException(status_code=401, detail="Authentication required for live device access")
         if user.status == "suspended":
             raise HTTPException(status_code=403, detail="Account suspended")
-        if settings.subscription.subscription_enabled and not _license.has_premium_access(user.id):
-            lic = _license.get_license(user.id)
+        if settings.subscription.subscription_enabled and not _license.has_premium_access(user.id, access_token=token):
+            lic = _license.get_license(user.id, access_token=token)
             if lic.status.value == "trial_expired":
                 raise HTTPException(
                     status_code=403,
@@ -146,7 +158,7 @@ async def require_live_access(user: Optional[AuthUser] = Depends(optional_user))
 
     if user and user.status == "suspended":
         raise HTTPException(status_code=403, detail="Account suspended")
-    if user and settings.subscription.subscription_enabled and not _license.has_premium_access(user.id):
+    if user and settings.subscription.subscription_enabled and not _license.has_premium_access(user.id, access_token=token):
         raise HTTPException(status_code=403, detail="Premium license required")
     return user
 

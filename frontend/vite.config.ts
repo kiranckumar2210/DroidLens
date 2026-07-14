@@ -10,6 +10,9 @@ const pkg = JSON.parse(readFileSync(path.resolve(rootDir, '../package.json'), 'u
 export default defineConfig({
   plugins: [react()],
   base: './',
+  build: {
+    chunkSizeWarningLimit: 1200,
+  },
   define: {
     __DROIDLENS_VERSION__: JSON.stringify(pkg.version),
   },

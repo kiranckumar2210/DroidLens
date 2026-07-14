@@ -12,6 +12,12 @@ from inspectiq.auth.audit_log import (
     log_premium_activated,
     log_registration,
 )
+from inspectiq.auth.cloud_auth import (
+    cloud_auth_url,
+    fetch_cloud_profile,
+    license_from_cloud_profile,
+    user_from_cloud_profile,
+)
 from inspectiq.auth.config import get_auth_config
 from inspectiq.auth.interfaces import (
     AuthenticationService,
@@ -119,7 +125,13 @@ class AuthService(AuthenticationService):
         payload = decode_access_token(token)
         if not payload or "sub" not in payload:
             return None
-        return self._repo.get_user(str(payload["sub"]))
+        user = self._repo.get_user(str(payload["sub"]))
+        if user:
+            return user
+        if cloud_auth_url():
+            profile = fetch_cloud_profile(token)
+            return user_from_cloud_profile(profile) if profile else None
+        return None
 
     def change_password(self, user_id: str, current: str, new_password: str) -> None:
         self._repo.change_password(user_id, current, new_password)
@@ -168,18 +180,33 @@ class LicenseService(LicenseServiceInterface):
     def __init__(self, repo: Optional[Any] = None):
         self._repo = repo or create_auth_repository()
 
-    def get_license(self, user_id: str) -> LicenseInfo:
-        return self._repo.get_license(user_id)
+    def get_license(self, user_id: str, access_token: Optional[str] = None) -> LicenseInfo:
+        try:
+            return self._repo.get_license(user_id)
+        except ValueError:
+            if access_token and cloud_auth_url():
+                profile = fetch_cloud_profile(access_token)
+                if profile:
+                    lic = license_from_cloud_profile(profile)
+                    if lic:
+                        return lic
+            raise
 
-    def has_premium_access(self, user_id: Optional[str]) -> bool:
+    def has_premium_access(self, user_id: Optional[str], access_token: Optional[str] = None) -> bool:
         if not user_id:
             return False
         settings = get_system_settings_service().get_settings()
         if not settings.subscription.subscription_enabled:
             user = self._repo.get_user(user_id)
-            return bool(user and user.status != "suspended")
+            if user:
+                return bool(user and user.status != "suspended")
+            if access_token and cloud_auth_url():
+                profile = fetch_cloud_profile(access_token)
+                cloud_user = user_from_cloud_profile(profile) if profile else None
+                return bool(cloud_user and cloud_user.status != "suspended")
+            return False
         try:
-            return self._repo.get_license(user_id).has_premium
+            return self.get_license(user_id, access_token=access_token).has_premium
         except ValueError:
             return False
 

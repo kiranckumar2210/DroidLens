@@ -8,7 +8,16 @@ export function getApiBase(): string {
   return ''
 }
 
-/** WebSocket base — same host in production, VITE_WS_BASE, or local backend in Electron dev. */
+/** Cloud auth API — login, billing, admin (desktop hybrid mode). Falls back to local API base. */
+export function getAuthApiBase(): string {
+  const cloud = window.droidlens?.authApiBase ?? window.inspectiq?.authApiBase
+  if (cloud) return cloud.replace(/\/$/, '')
+  const fromEnv = import.meta.env.VITE_AUTH_API_BASE as string | undefined
+  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  return getApiBase()
+}
+
+/** WebSocket base — local backend in Electron; same host or VITE_WS_BASE in production. */
 export function getWsBase(): string {
   const explicit = window.droidlens?.wsBase ?? window.inspectiq?.wsBase
   if (explicit) return explicit.replace(/\/$/, '')
@@ -29,3 +38,27 @@ export function getApiDocsUrl(): string {
 
 export const isElectron = (): boolean =>
   Boolean(window.droidlens?.isElectron || window.inspectiq?.isElectron)
+
+export function usesCloudAuth(): boolean {
+  return getAuthApiBase() !== getApiBase()
+}
+
+function isAuthApiPath(path: string): boolean {
+  const normalized = path.split('?')[0]
+  if (normalized.startsWith('/admin')) return true
+  if (normalized.startsWith('/auth/')) return true
+  if (normalized.startsWith('/payment/')) return true
+  return [
+    '/register',
+    '/login',
+    '/refresh',
+    '/logout',
+    '/forgot-password',
+    '/profile',
+    '/pricing',
+  ].includes(normalized)
+}
+
+export function resolveApiBase(path: string): string {
+  return isAuthApiPath(path) ? getAuthApiBase() : getApiBase()
+}

@@ -53,13 +53,27 @@ app = FastAPI(
     version="1.0.0",
 )
 
+_DESKTOP_CORS_ORIGINS = (
+    "http://127.0.0.1:8765",
+    "http://localhost:8765",
+)
+
 _cors_raw = os.environ.get("DROIDLENS_CORS_ORIGINS", "*")
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()] or ["*"]
+_use_wildcard = "*" in _cors_origins
+if _use_wildcard:
+    _cors_origins = ["*"]
+    _cors_allow_credentials = False
+else:
+    for _origin in _DESKTOP_CORS_ORIGINS:
+        if _origin not in _cors_origins:
+            _cors_origins.append(_origin)
+    _cors_allow_credentials = True
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_credentials=_cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

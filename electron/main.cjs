@@ -36,6 +36,29 @@ function isBackendExternal() {
   return IS_DEV || process.env.DROIDLENS_EXTERNAL_BACKEND === '1' || process.env.INSPECTIQ_EXTERNAL_BACKEND === '1'
 }
 
+function loadDesktopConfig() {
+  const candidates = [
+    path.join(app.getPath('userData'), 'desktop-config.json'),
+    path.join(__dirname, 'desktop-config.json'),
+  ]
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return JSON.parse(fs.readFileSync(candidate, 'utf8'))
+      }
+    } catch (err) {
+      console.warn('[electron] Failed to read desktop config:', candidate, err.message)
+    }
+  }
+  return {}
+}
+
+function cloudApiUrlFromConfig() {
+  const cfg = loadDesktopConfig()
+  const raw = cfg.cloudApiUrl || cfg.authApiUrl || process.env.DROIDLENS_CLOUD_API_URL || ''
+  return String(raw).trim().replace(/\/$/, '')
+}
+
 function startBackend() {
   return new Promise((resolve, reject) => {
     if (isBackendExternal()) {
@@ -50,6 +73,7 @@ function startBackend() {
 
     const backendDir = getBackendDir()
     const python = getPythonCommand()
+    const cloudApiUrl = cloudApiUrlFromConfig()
 
     const env = {
       ...process.env,
@@ -59,6 +83,14 @@ function startBackend() {
       INSPECTIQ_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
       INSPECTIQ_PORT: BACKEND_PORT,
     }
+    if (cloudApiUrl) {
+      env.DROIDLENS_CLOUD_AUTH_URL = cloudApiUrl
+      console.log('[electron] Cloud auth API:', cloudApiUrl)
+    }
+
+    const staticDir = getStaticDir()
+    env.DROIDLENS_STATIC_DIR = staticDir
+    console.log('[electron] Serving frontend from', staticDir)
 
     backendProcess = spawn(
       python,
@@ -72,11 +104,11 @@ function startBackend() {
     backendSpawnedByElectron = true
 
     backendProcess.stdout.on('data', (data) => {
-      if (IS_DEV) console.log(`[backend] ${data.toString().trim()}`)
+      console.log(`[backend] ${data.toString().trim()}`)
     })
 
     backendProcess.stderr.on('data', (data) => {
-      if (IS_DEV) console.error(`[backend] ${data.toString().trim()}`)
+      console.error(`[backend] ${data.toString().trim()}`)
     })
 
     backendProcess.on('error', (err) => {
@@ -92,6 +124,21 @@ function startBackend() {
 
     waitForBackend(30, 500).then(resolve).catch(reject)
   })
+}
+
+function getStaticDir() {
+  const distPath = path.join(__dirname, '..', 'frontend', 'dist')
+  // Python backend cannot read inside app.asar — use asar-unpacked copy when packaged.
+  if (!IS_DEV && distPath.includes(`${path.sep}app.asar${path.sep}`)) {
+    const unpacked = distPath.replace(
+      `${path.sep}app.asar${path.sep}`,
+      `${path.sep}app.asar.unpacked${path.sep}`
+    )
+    if (fs.existsSync(unpacked)) {
+      return unpacked
+    }
+  }
+  return distPath
 }
 
 function getBackendDir() {
@@ -202,6 +249,9 @@ function closeSplashWindow() {
 }
 
 function createWindow() {
+  const cloudApiUrl = cloudApiUrlFromConfig()
+  const extraArgs = cloudApiUrl ? [`--cloud-api-url=${cloudApiUrl}`] : []
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -215,6 +265,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      additionalArguments: extraArgs,
     },
     show: false,
   })
@@ -233,8 +284,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
-    const indexPath = path.join(__dirname, '..', 'frontend', 'dist', 'index.html')
-    mainWindow.loadFile(indexPath)
+    mainWindow.loadURL(`${BACKEND_URL}/`)
   }
 
   mainWindow.on('closed', () => {

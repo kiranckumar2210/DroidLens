@@ -4,6 +4,7 @@ declare const __DROIDLENS_VERSION__: string
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE?: string
+  readonly VITE_AUTH_API_BASE?: string
   readonly VITE_WS_BASE?: string
 }
 
@@ -15,6 +16,7 @@ interface DroidLensBridge {
   isElectron: boolean
   apiBase: string
   wsBase: string
+  authApiBase?: string
   version: string
   productName?: string
   tagline?: string

@@ -105,10 +105,14 @@ def main() -> None:
     images = {}
     for size in SIZES:
         im = draw_icon(size)
-        path = OUT / f"icon-{size}.png"
+        # electron-builder Linux expects {size}x{size}.png in the icons folder
+        path = OUT / f"{size}x{size}.png"
         im.save(path, "PNG")
         images[size] = im
         print(f"Wrote {path}")
+        legacy = OUT / f"icon-{size}.png"
+        if legacy != path:
+            im.save(legacy, "PNG")
 
     # Master icon for electron-builder
     master = images[512]
