@@ -17,7 +17,7 @@ interface Props {
   onNotify: (msg: string, kind?: 'info' | 'success' | 'warning' | 'error') => void
   inspection: ElementInspectionResult | null
   selectedLocator: LocatorCandidate | null
-  onExecute: (payload: ExecuteActionPayload) => void
+  onExecute: (payload: ExecuteActionPayload) => Promise<void>
 }
 
 export default function RecordingModeBar({

@@ -28,7 +28,6 @@ const FEATURE_TO_FLAG: Partial<Record<PremiumFeature, keyof SystemConfig['featur
   interaction_recorder: 'recorder',
   ai_locator_suggestions: 'ai_features',
   session_save: 'session_manager',
-  mock_demo: 'mock_inspector',
 }
 
 const FEATURE_LABELS: Record<PremiumFeature, string> = {

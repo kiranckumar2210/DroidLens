@@ -46,8 +46,6 @@ import { countElements } from './utils/treeUtils'
 import './styles/app.css'
 import './styles/recording-studio.css'
 
-type AuthOverlay = import('./auth/navigationStorage').AuthOverlay
-
 export default function App() {
   const path = window.location.pathname
   if (path.startsWith('/admin')) {
@@ -535,7 +533,7 @@ function AppShell({
             packageName={sm.packageName}
             activity={sm.activity}
             onSelectAt={handleScreenshotClick}
-            onSelectById={(id) => void sm.selectById(id)}
+            onSelectById={(id) => sm.selectById(id)}
             onRefreshSession={sm.refreshInspection}
             onBack={() => void handleBackFromStudio()}
             onNotify={notify}
@@ -679,7 +677,7 @@ function AppShell({
             onHighlightMatches={sm.setHighlightIds}
             theme={resolved}
             premiumLocked={!hasPremium}
-            elementName={elementName}
+            elementName={elementName()}
             packageName={sm.packageName}
           />
         </SplitPane>

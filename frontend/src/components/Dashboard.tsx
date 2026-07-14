@@ -231,7 +231,7 @@ export default function Dashboard({
             className={`dl-card ${expanded === 'live' ? 'expanded' : ''} ${liveLocked ? 'locked' : ''}`}
             onClick={() => toggle('live')}
           >
-            {liveLocked && <Lock size={14} className="dl-card-lock" title="Requires account & active license" />}
+            {liveLocked && <Lock size={14} className="dl-card-lock" aria-hidden />}
             <div className="dl-card-icon live"><Monitor size={24} /></div>
             <h2>Connect Live Device</h2>
             <p>Inspect a connected Android phone or emulator via ADB with live screenshot and hierarchy refresh.</p>
@@ -270,7 +270,7 @@ export default function Dashboard({
           </article>
 
           <article className={`dl-card ${expanded === 'offline' ? 'expanded' : ''} ${offlineLocked ? 'locked' : ''}`} onClick={() => toggle('offline')}>
-            {offlineLocked && <Lock size={14} className="dl-card-lock" title="Requires account & active license" />}
+            {offlineLocked && <Lock size={14} className="dl-card-lock" aria-hidden />}
             <div className="dl-card-icon offline"><Upload size={24} /></div>
             <h2>Open XML Dump</h2>
             <p>Load a previously exported UI hierarchy XML with optional screenshot for offline analysis.</p>

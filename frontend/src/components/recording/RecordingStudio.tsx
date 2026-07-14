@@ -160,7 +160,7 @@ export default function RecordingStudio({
   const selectedElement = useMemo((): ElementNode | null => {
     if (selectedStepId) {
       const step = steps.find((s) => s.id === selectedStepId)
-      if (step?.element) return step.element as ElementNode
+      if (step?.element) return step.element as unknown as ElementNode
     }
     return inspection?.element ?? null
   }, [selectedStepId, steps, inspection])
