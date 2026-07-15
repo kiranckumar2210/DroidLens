@@ -383,3 +383,4 @@ class ProjectSummary(BaseModel):
     feature_count: int = 0
     element_count: int = 0
     created_at: datetime
+

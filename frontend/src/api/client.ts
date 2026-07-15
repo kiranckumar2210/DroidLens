@@ -129,12 +129,25 @@ export const api = {
     throw lastError ?? new Error('Session refresh failed')
   },
 
+  createOfflineFromContent: (xml_content: string, screenshot_base64?: string) =>
+    request<InspectionSession>('/session/offline', {
+      method: 'POST',
+      body: JSON.stringify({ xml_content, screenshot_base64 }),
+    }),
+
   uploadOffline: async (xmlFile?: File, screenshotFile?: File) => {
     const form = new FormData()
     if (xmlFile) form.append('xml_file', xmlFile)
     if (screenshotFile) form.append('screenshot_file', screenshotFile)
-    const res = await fetch(`${getApiBase()}/session/offline/upload`, { method: 'POST', body: form })
-    if (!res.ok) throw new Error(await res.text())
+    const res = await fetch(`${resolveApiBase('/session/offline/upload')}/session/offline/upload`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: form,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail))
+    }
     return res.json() as Promise<InspectionSession>
   },
 

@@ -12,6 +12,21 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+interface FolderXmlPair {
+  label: string
+  xmlPath: string
+  screenshotPath: string | null
+}
+
+interface ExportXmlPackagePayload {
+  parentDir: string
+  folderName: string
+  baseName: string
+  xml: string
+  screenshotBase64: string
+  metadata?: Record<string, unknown>
+}
+
 interface DroidLensBridge {
   isElectron: boolean
   apiBase: string
@@ -20,6 +35,16 @@ interface DroidLensBridge {
   version: string
   productName?: string
   tagline?: string
+  pickExportFolder?: () => Promise<string | null>
+  pickImportFolder?: () => Promise<string | null>
+  exportXmlPackage?: (payload: ExportXmlPackagePayload) => Promise<string>
+  readFolderPairs?: (folderPath: string) => Promise<FolderXmlPair[]>
+  readPackagePaths?: (xmlPath: string, screenshotPath?: string | null) => Promise<{
+    xml: string
+    screenshotBase64: string | null
+    xmlPath: string
+    screenshotPath: string | null
+  }>
 }
 
 interface Window {

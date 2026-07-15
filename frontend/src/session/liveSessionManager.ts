@@ -34,7 +34,7 @@ export interface RestoreLiveSessionOptions {
 
 /**
  * Restore an existing backend session or reconnect live when the in-memory session was lost.
- * Never navigates — returns session data for the caller to apply.
+ * Offline XML packages must be reopened from Dashboard (file-based, not in-memory).
  */
 export async function restoreLiveSession(
   opts: RestoreLiveSessionOptions,
@@ -63,7 +63,7 @@ export async function restoreLiveSession(
   } catch {
     if (sessionKind !== 'live') {
       liveSessionLog('session_restore_failed', { deviceId, sessionKind })
-      throw new Error('Offline session no longer available')
+      throw new Error('Offline session expired — use Open XML Package on the Dashboard')
     }
 
     liveSessionLog('session_reconnect_attempt', { deviceId })

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  CircleDot, Code2, Info, Play, Radio, RefreshCw, Save, Search,
+  CircleDot, Code2, Download, FileUp, Info, Play, Radio, RefreshCw, Save, Search,
 } from 'lucide-react'
 import { api } from './api/client'
 import { useAuth } from './auth/AuthContext'
@@ -14,8 +14,10 @@ import CodeGeneratorModal from './components/CodeGeneratorModal'
 import Dashboard, { DashboardBackButton } from './components/Dashboard'
 import DevicePanel from './components/DevicePanel'
 import ElementTree from './components/ElementTree'
+import ImportXmlPackageDialog from './components/ImportXmlPackageDialog'
 import InspectorPanel from './components/InspectorPanel'
 import SaveModal from './components/SaveModal'
+import OfflineScreenNav from './components/OfflineScreenNav'
 import ScreenshotPanel from './components/ScreenshotPanel'
 import StatusBar from './components/StatusBar'
 import ThemeSwitcher from './components/ui/ThemeSwitcher'
@@ -32,6 +34,7 @@ import RecordingStudio from './components/recording/RecordingStudio'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useRecording } from './recording/useRecording'
 import { liveSessionLog } from './session/liveSessionManager'
+import { exportXmlPackage } from './offline/exportPackage'
 import { resetApplicationState } from './session/resetState'
 import { loadNavState, saveAuthOverlay, saveNavState, type AuthOverlay, type CheckoutStep } from './auth/navigationStorage'
 import { loadPersistedState, savePersistedState } from './session/storage'
@@ -159,6 +162,8 @@ function AppShell({
   const [zoom, setZoom] = useState(1)
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
   const [recorderOpen, setRecorderOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
 
   const setRecordingModeOpen = useCallback((open: boolean) => {
     setRecorderOpen(open)
@@ -259,6 +264,63 @@ function AppShell({
   const elementName = () =>
     (sm.inspection?.element.text || sm.inspection?.element.resource_id?.split('/').pop() || 'element')
       .toLowerCase().replace(/[^a-z0-9_]/g, '_')
+
+  const handleExportPackage = useCallback(async () => {
+    let session = sm.session
+    if (!session?.raw_xml || !session?.screenshot_base64) {
+      notify('Nothing to export — refresh the session first', 'warning')
+      return
+    }
+    try {
+      if (sm.sessionKind === 'live' && sm.deviceId) {
+        session = await api.refreshSessionWithRetry(sm.deviceId, 'android', sm.packageName || undefined)
+        await sm.applySessionUpdate(session, { preserveSelection: true })
+      }
+      const baseName = sm.currentPackageLabel || sm.packageName?.split('.').pop() || 'CurrentScreen'
+      const xml = session.raw_xml!
+      const screenshotBase64 = session.screenshot_base64!
+      const out = await exportXmlPackage({
+        xml,
+        screenshotBase64,
+        baseName,
+        screenWidth: session.screen_width,
+        screenHeight: session.screen_height,
+        screenshotWidth: session.screenshot_width,
+        screenshotHeight: session.screenshot_height,
+        packageName: sm.packageName || session.package || undefined,
+        deviceId: session.device_id,
+        mode: sm.sessionKind,
+      })
+      notify(`XML package exported: ${out}`, 'success')
+    } catch (e) {
+      notify((e as Error).message, 'error')
+    }
+  }, [sm, notify])
+
+  const handleOpenXmlPackages = useCallback(async (pairs: Parameters<typeof sm.enterOfflinePackages>[0], startIndex = 0) => {
+    await sm.enterOfflinePackages(pairs, startIndex)
+    notify(`Opened ${pairs.length} screen(s)`, 'success')
+  }, [sm, notify])
+
+  const handleInspectorDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files)
+    if (!files.length) return
+    requestFeature('xml_upload', async () => {
+      const { pairFilesFromList } = await import('./offline/xmlPackage')
+      const pairs = pairFilesFromList(files)
+      if (!pairs.length) {
+        notify('Drop an XML file (.xml) with optional matching PNG', 'warning')
+        return
+      }
+      try {
+        await handleOpenXmlPackages(pairs, 0)
+      } catch (err) {
+        notify((err as Error).message, 'error')
+      }
+    })
+  }, [handleOpenXmlPackages, notify, requestFeature])
 
   useEffect(() => {
     if (!sm.selectedLocator || !codeModalOpen) return
@@ -367,8 +429,9 @@ function AppShell({
           theme={theme}
           onThemeChange={setTheme}
           onEnterLive={sm.enterLiveInspector}
-          onEnterOffline={sm.enterOfflineInspector}
+          onOpenXmlPackages={sm.enterOfflinePackages}
           onEnterMock={sm.enterMockInspector}
+          onNotify={notify}
           onOpenAccount={openAccount}
           onOpenSubscription={openSubscription}
           onOpenLogin={openLogin}
@@ -403,7 +466,12 @@ function AppShell({
   }
 
   return (
-    <div className="app">
+    <div
+      className={`app ${dragOver ? 'app-drag-over' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleInspectorDrop}
+    >
       <DevModeBanner />
       <header className="app-toolbar">
         <DashboardBackButton onClick={sm.backToDashboard} />
@@ -480,6 +548,23 @@ function AppShell({
             title={hasPremium ? 'Generate automation code' : 'Requires account & license'}
           >
             <Code2 size={14} /> Code
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => void handleExportPackage()}
+            disabled={!sm.session?.raw_xml || !sm.session?.screenshot_base64}
+            title="Export XML + PNG to folder (UIAutomatorViewer style)"
+          >
+            <Download size={14} /> Export
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => requestFeature('xml_upload', () => setImportOpen(true))}
+            title="Open XML + PNG package"
+          >
+            <FileUp size={14} /> Open
           </button>
           <button
             type="button"
@@ -576,6 +661,14 @@ function AppShell({
         />
       )}
 
+      <div className={`inspector-layout ${showSessionRecovery && !recorderOpen ? 'workspace-blocked' : ''} ${recorderOpen ? 'workspace-behind-studio' : ''}`}>
+        {sm.sessionKind === 'offline' && sm.offlinePackages.length > 1 && (
+          <OfflineScreenNav
+            packages={sm.offlinePackages}
+            activeIndex={sm.activePackageIndex}
+            onSelect={(idx) => void sm.switchOfflinePackage(idx)}
+          />
+        )}
       <div className={`workspace ${showSessionRecovery && !recorderOpen ? 'workspace-blocked' : ''} ${recorderOpen ? 'workspace-behind-studio' : ''}`}>
         <SplitPane side="left" initial={280} min={220} max={480} className="split-pane-left">
           <div className="split-pane-inner">
@@ -682,6 +775,7 @@ function AppShell({
           />
         </SplitPane>
       </div>
+      </div>
 
       {sm.refreshing && (
         <div className="refresh-overlay" aria-live="polite">
@@ -759,6 +853,12 @@ function AppShell({
           })
           notify('Element saved to repository', 'success')
         }}
+      />
+
+      <ImportXmlPackageDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onOpen={handleOpenXmlPackages}
       />
     </div>
   )

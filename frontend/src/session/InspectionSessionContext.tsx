@@ -25,6 +25,9 @@ import {
   type PersistedInspectionState,
   type SessionKind,
 } from './storage'
+import { loadXmlPackagePair } from '../offline/loadPackage'
+import { addRecentFile } from '../offline/recentFiles'
+import type { XmlPackagePair } from '../offline/xmlPackage'
 import { liveSessionLog, restoreLiveSession } from './liveSessionManager'
 
 export interface InspectionSessionContextValue {
@@ -56,7 +59,12 @@ export interface InspectionSessionContextValue {
   setLiveRefresh: (v: boolean) => void
   setSelectedLocator: (loc: LocatorCandidate | null) => void
   enterLiveInspector: (devId: string, pkg?: string) => Promise<void>
+  enterOfflinePackages: (pairs: XmlPackagePair[], startIndex?: number) => Promise<void>
   enterOfflineInspector: (xml?: File, screenshot?: File) => Promise<void>
+  switchOfflinePackage: (index: number) => Promise<void>
+  offlinePackages: XmlPackagePair[]
+  activePackageIndex: number
+  currentPackageLabel: string
   enterMockInspector: () => Promise<void>
   backToDashboard: () => void
   retryRestore: () => Promise<void>
@@ -110,6 +118,8 @@ export function InspectionSessionProvider({
   const [inspectorSection, setInspectorSection] = useState<InspectorSection>(initial.inspectorSection)
   const [builderState, setBuilderState] = useState<BuilderState>(initial.builderState)
   const [highlightIds, setHighlightIds] = useState<string[]>([])
+  const [offlinePackages, setOfflinePackages] = useState<XmlPackagePair[]>([])
+  const [activePackageIndex, setActivePackageIndex] = useState(0)
   const selectedElementIdRef = useRef<string | null>(initial.selectedElementId)
 
   const persist = useCallback((patch: Partial<PersistedInspectionState>) => {
@@ -290,30 +300,66 @@ export function InspectionSessionProvider({
     }
   }, [onNotify, packageName, persist])
 
-  const enterOfflineInspector = useCallback(async (xml?: File, screenshot?: File) => {
+  const applyOfflinePair = useCallback(async (pair: XmlPackagePair) => {
+    const s = await loadXmlPackagePair(pair)
+    setSession(s)
+    setDeviceId(s.device_id)
+    setSessionKind('offline')
+    setLiveRefresh(false)
+    setInspection(null)
+    setSelectedLocator(null)
+    selectedElementIdRef.current = null
+    setScreen('inspector')
+    persist({
+      screen: 'inspector',
+      sessionKind: 'offline',
+      deviceId: s.device_id,
+      liveRefresh: false,
+      ...snapshotFromSession(s),
+    })
+    addRecentFile({
+      xmlName: pair.label + '.xml',
+      xmlPath: pair.xmlPath,
+      screenshotPath: pair.screenshotPath,
+    })
+    return s
+  }, [persist])
+
+  const enterOfflinePackages = useCallback(async (pairs: XmlPackagePair[], startIndex = 0) => {
+    if (!pairs.length) throw new Error('No XML packages to open')
     setConnecting(true)
+    setOfflinePackages(pairs)
+    setActivePackageIndex(startIndex)
     try {
-      const s = await api.uploadOffline(xml, screenshot)
-      setSession(s)
-      setDeviceId(s.device_id)
-      setSessionKind('offline')
-      setLiveRefresh(false)
-      setInspection(null)
-      setSelectedLocator(null)
-      selectedElementIdRef.current = null
-      setScreen('inspector')
-      persist({
-        screen: 'inspector',
-        sessionKind: 'offline',
-        deviceId: s.device_id,
-        liveRefresh: false,
-        ...snapshotFromSession(s),
-      })
-      onNotify(`Offline session: ${s.device_id}`, 'success')
+      await applyOfflinePair(pairs[startIndex]!)
+      onNotify(`Opened: ${pairs[startIndex]!.label}`, 'success')
     } finally {
       setConnecting(false)
     }
-  }, [onNotify, persist])
+  }, [applyOfflinePair, onNotify])
+
+  const switchOfflinePackage = useCallback(async (index: number) => {
+    if (index < 0 || index >= offlinePackages.length) return
+    setConnecting(true)
+    setActivePackageIndex(index)
+    try {
+      await applyOfflinePair(offlinePackages[index]!)
+      onNotify(`Switched to: ${offlinePackages[index]!.label}`, 'info')
+    } finally {
+      setConnecting(false)
+    }
+  }, [offlinePackages, applyOfflinePair, onNotify])
+
+  const enterOfflineInspector = useCallback(async (xml?: File, screenshot?: File) => {
+    if (!xml && !screenshot) throw new Error('Select an XML and/or screenshot file')
+    const label = xml?.name.replace(/\.(xml|uix)$/i, '') || screenshot?.name.replace(/\.\w+$/, '') || 'Offline'
+    await enterOfflinePackages([{
+      id: label,
+      label,
+      xml,
+      screenshot,
+    }], 0)
+  }, [enterOfflinePackages])
 
   const enterMockInspector = useCallback(async () => {
     setConnecting(true)
@@ -343,9 +389,13 @@ export function InspectionSessionProvider({
   const backToDashboard = useCallback(() => {
     setScreen('dashboard')
     setLiveRefresh(false)
+    setOfflinePackages([])
+    setActivePackageIndex(0)
     persist({ screen: 'dashboard', liveRefresh: false })
     onNotify('Ready')
   }, [onNotify, persist])
+
+  const currentPackageLabel = offlinePackages[activePackageIndex]?.label ?? ''
 
   const refreshInspection = useCallback(async () => {
     if (!deviceId || !session || sessionKind !== 'live' || screen !== 'inspector') return
@@ -431,7 +481,12 @@ export function InspectionSessionProvider({
     setLiveRefresh,
     setSelectedLocator,
     enterLiveInspector,
+    enterOfflinePackages,
     enterOfflineInspector,
+    switchOfflinePackage,
+    offlinePackages,
+    activePackageIndex,
+    currentPackageLabel,
     enterMockInspector,
     backToDashboard,
     retryRestore: runRestore,
@@ -445,7 +500,8 @@ export function InspectionSessionProvider({
     screen, sessionKind, deviceId, session, inspection, selectedLocator,
     liveRefresh, refreshing, connecting, restoring, restoreError, packageName, activity,
     languageProfile, codeAction, inspectorSection, builderState, highlightIds,
-    enterLiveInspector, enterOfflineInspector, enterMockInspector,
+    enterLiveInspector, enterOfflinePackages, enterOfflineInspector, switchOfflinePackage,
+    offlinePackages, activePackageIndex, currentPackageLabel, enterMockInspector,
     backToDashboard, refreshInspection, applySessionUpdate,
     selectAt, selectById, selectLocator,
   ])

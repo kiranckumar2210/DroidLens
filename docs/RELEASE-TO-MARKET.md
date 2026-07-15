@@ -183,18 +183,22 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-GitHub Actions (`.github/workflows/release-desktop.yml`) builds Linux AppImage + `.deb` and attaches them to the release.
+GitHub Actions (`.github/workflows/release-desktop.yml`) builds **all platforms** on tag push and attaches installers to the release:
 
-#### Step 4A.3 — Manual assets (Windows/macOS)
+| Platform | Artifacts |
+|----------|-----------|
+| Linux | `DroidLens-x.y.z.AppImage`, `droidlens_x.y.z_amd64.deb` |
+| Windows | `DroidLens Setup x.y.z.exe` |
+| macOS | `DroidLens-x.y.z.dmg` (unsigned — users may need to allow in System Settings) |
 
-Build on each OS, then upload to the same GitHub Release:
+#### Step 4A.3 — Verify release artifacts
 
-1. GitHub → **Releases** → **Draft a new release**  
-2. Choose tag `v1.0.0`  
-3. Title: `DroidLens v1.0.0`  
-4. Upload all installers from `dist-electron/`  
-5. Add release notes (features, fixes, known issues)  
-6. **Publish release**  
+After the workflow completes:
+
+1. GitHub → **Actions** → **Release Desktop** → confirm all three build jobs are green  
+2. GitHub → **Releases** → open the tag → confirm Linux, Windows, and macOS installers are attached  
+3. Add or edit release notes (features, fixes, known issues) if needed  
+4. **Publish release** if it was created as a draft  
 
 #### Step 4A.4 — Share download link
 

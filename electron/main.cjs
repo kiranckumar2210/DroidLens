@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, dialog, Menu, nativeImage } = require('electron')
+const { app, BrowserWindow, shell, dialog, Menu, nativeImage, ipcMain } = require('electron')
 const { spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
@@ -340,6 +340,87 @@ function buildAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+function stripExt(name) {
+  const i = name.lastIndexOf('.')
+  return i > 0 ? name.slice(0, i) : name
+}
+
+function isXmlName(name) {
+  const lower = name.toLowerCase()
+  return lower.endsWith('.xml') || lower.endsWith('.uix')
+}
+
+function isImageName(name) {
+  const lower = name.toLowerCase()
+  return lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')
+}
+
+function scanFolderForPairs(folderPath) {
+  const entries = fs.readdirSync(folderPath)
+  return entries
+    .filter(isXmlName)
+    .map((xmlName) => {
+      const base = stripExt(xmlName)
+      const pngName = entries.find(
+        (e) => isImageName(e) && stripExt(e).toLowerCase() === base.toLowerCase(),
+      )
+      return {
+        label: base,
+        xmlPath: path.join(folderPath, xmlName),
+        screenshotPath: pngName ? path.join(folderPath, pngName) : null,
+      }
+    })
+}
+
+function registerXmlPackageIpc() {
+  ipcMain.handle('pick-export-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Choose export folder',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || !result.filePaths.length) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('pick-import-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Open folder with XML and PNG pairs',
+      properties: ['openDirectory'],
+    })
+    if (result.canceled || !result.filePaths.length) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('export-xml-package', async (_event, payload) => {
+    const { parentDir, folderName, baseName, xml, screenshotBase64, metadata } = payload
+    const outDir = path.join(parentDir, folderName)
+    fs.mkdirSync(outDir, { recursive: true })
+    fs.writeFileSync(path.join(outDir, `${baseName}.xml`), xml, 'utf8')
+    fs.writeFileSync(path.join(outDir, `${baseName}.png`), Buffer.from(screenshotBase64, 'base64'))
+    if (metadata) {
+      fs.writeFileSync(path.join(outDir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf8')
+    }
+    return outDir
+  })
+
+  ipcMain.handle('read-folder-pairs', async (_event, folderPath) => {
+    if (!folderPath || !fs.existsSync(folderPath)) return []
+    return scanFolderForPairs(folderPath)
+  })
+
+  ipcMain.handle('read-package-paths', async (_event, { xmlPath, screenshotPath }) => {
+    if (!xmlPath || !fs.existsSync(xmlPath)) {
+      throw new Error(`XML file not found: ${xmlPath}`)
+    }
+    const xml = fs.readFileSync(xmlPath, 'utf8')
+    let screenshotBase64 = null
+    if (screenshotPath && fs.existsSync(screenshotPath)) {
+      screenshotBase64 = fs.readFileSync(screenshotPath).toString('base64')
+    }
+    return { xml, screenshotBase64, xmlPath, screenshotPath: screenshotPath || null }
+  })
+}
+
 async function bootstrap() {
   createSplashWindow()
   buildAppMenu()
@@ -361,7 +442,10 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.droidlens.desktop')
 }
 
-app.whenReady().then(bootstrap)
+app.whenReady().then(() => {
+  registerXmlPackageIpc()
+  return bootstrap()
+})
 
 app.on('window-all-closed', () => {
   stopBackend()

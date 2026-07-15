@@ -12,31 +12,38 @@ find_pids_on_port() {
   fi
 }
 
-find_uvicorn_pid() {
-  # Match parent uvicorn regardless of which worker pid lsof returns first.
+find_droidlens_backend_pid() {
+  # Match uvicorn or `python3 -m inspectiq.api.main` (see scripts/run-backend.sh).
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -f "uvicorn inspectiq.api.main:app.*--port ${PORT}" 2>/dev/null | head -1 || true
+    pgrep -f "inspectiq\.api\.main" 2>/dev/null | head -1 || true
     return
   fi
   while IFS= read -r pid; do
     [[ -z "$pid" ]] && continue
     local cmd
     cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
-    if echo "$cmd" | grep -qE 'uvicorn inspectiq\.api\.main'; then
+    if echo "$cmd" | grep -qE 'inspectiq\.api\.main'; then
       echo "$pid"
       return
     fi
   done < <(find_pids_on_port)
 }
 
+is_droidlens_backend_cmd() {
+  echo "$1" | grep -qE 'inspectiq\.api\.main'
+}
+
 PIDS="$(find_pids_on_port | tr '\n' ' ' | xargs echo -n 2>/dev/null || true)"
 [[ -z "${PIDS// /}" ]] && exit 0
 
-UVICORN_PID="$(find_uvicorn_pid || true)"
+FIRST_PID="$(echo "$PIDS" | awk '{print $1}')"
+CMD="$(ps -p "$FIRST_PID" -o args= 2>/dev/null || true)"
+DROIDLENS_PID="$(find_droidlens_backend_pid || true)"
 
-if [[ -n "${UVICORN_PID:-}" ]]; then
-  echo "Stopping stale DroidLens backend on port ${PORT} (pid ${UVICORN_PID})..."
-  kill "$UVICORN_PID" 2>/dev/null || true
+if [[ -n "${DROIDLENS_PID:-}" ]] || is_droidlens_backend_cmd "${CMD:-}"; then
+  KILL_PID="${DROIDLENS_PID:-$FIRST_PID}"
+  echo "Stopping stale DroidLens backend on port ${PORT} (pid ${KILL_PID})..."
+  kill "$KILL_PID" 2>/dev/null || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 0.2
     [[ -z "$(find_pids_on_port | head -1 || true)" ]] && exit 0
@@ -51,8 +58,6 @@ if [[ -n "${UVICORN_PID:-}" ]]; then
 fi
 
 # Non-DroidLens process owns the port
-FIRST_PID="$(echo "$PIDS" | awk '{print $1}')"
-CMD="$(ps -p "$FIRST_PID" -o args= 2>/dev/null || true)"
 echo "Port ${PORT} is already in use by another process (pid ${FIRST_PID}):"
 echo "  ${CMD}"
 echo ""

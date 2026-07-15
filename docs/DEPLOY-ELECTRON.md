@@ -171,7 +171,7 @@ Users need **Python 3.10+** and `pip install -r backend/requirements.txt` unless
 4. Upload files from `dist-electron/`
 5. Publish release
 
-### Option B — GitHub Actions (Linux AppImage)
+### Option B — GitHub Actions (all platforms)
 
 Push a version tag:
 
@@ -180,7 +180,14 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-Workflow `.github/workflows/release-desktop.yml` builds and attaches Linux artifacts automatically.
+Workflow `.github/workflows/release-desktop.yml` builds Linux (AppImage + deb), Windows (NSIS `.exe`), and macOS (`.dmg`) on `windows-latest`, `macos-latest`, and `ubuntu-latest`, then publishes a GitHub Release with all artifacts.
+
+**CI notes:**
+- Node 22, `npm ci` at repo root and `frontend/`
+- Python 3.11 installs only `backend/requirements-build.txt` (Pillow for icons)
+- Icon generation uses `scripts/run-python.cjs` (cross-platform `python`/`python3`)
+- macOS builds are **unsigned** (`CSC_IDENTITY_AUTO_DISCOVERY=false`) — fine for GitHub Releases; add Apple Developer cert for notarization later
+- `pysqlite3-binary` in `requirements.txt` is Linux-only; Windows/macOS use stdlib `sqlite3`
 
 ---
 

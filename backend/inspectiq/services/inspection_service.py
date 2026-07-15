@@ -221,6 +221,8 @@ class InspectionService:
         raw_xml: Optional[str] = None,
         screenshot_base64: Optional[str] = None,
         session_id: Optional[str] = None,
+        *,
+        package: Optional[str] = None,
     ) -> InspectionSession:
         sid = session_id or f"offline-{uuid.uuid4().hex[:8]}"
         logger.info("Creating offline session: id=%s", sid)
@@ -254,6 +256,7 @@ class InspectionService:
             device_id=sid,
             platform=Platform.ANDROID,
             mode=SessionMode.OFFLINE,
+            package=package,
             tree=tree,
             screenshot_base64=screenshot_base64,
             raw_xml=raw_xml,

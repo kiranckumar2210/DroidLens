@@ -1,4 +1,4 @@
-const { contextBridge } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 const pkg = require('../package.json')
 
 const APP_VERSION = pkg.version || '1.0.0'
@@ -25,6 +25,12 @@ const bridge = {
   version: APP_VERSION,
   productName: 'DroidLens',
   tagline: 'See. Inspect. Automate.',
+  pickExportFolder: () => ipcRenderer.invoke('pick-export-folder'),
+  pickImportFolder: () => ipcRenderer.invoke('pick-import-folder'),
+  exportXmlPackage: (payload) => ipcRenderer.invoke('export-xml-package', payload),
+  readFolderPairs: (folderPath) => ipcRenderer.invoke('read-folder-pairs', folderPath),
+  readPackagePaths: (xmlPath, screenshotPath) =>
+    ipcRenderer.invoke('read-package-paths', { xmlPath, screenshotPath }),
 }
 
 contextBridge.exposeInMainWorld('droidlens', bridge)

@@ -1,33 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Clock, Database, Info, Lock, Monitor, RefreshCw, Settings, Upload, User,
+  Clock, Database, Download, FileUp, Info, Lock, Monitor, RefreshCw, Settings, User,
 } from 'lucide-react'
 import { api } from '../api/client'
+import { isElectron } from '../api/baseUrl'
 import { useAuth } from '../auth/AuthContext'
 import { useSystemConfig } from '../auth/SystemConfigContext'
 import { dashboardStatusText, trialBannerText } from '../auth/features'
 import { usePremiumGate } from '../auth/usePremiumGate'
+import { loadRecentFiles, type RecentFileEntry } from '../offline/recentFiles'
+import type { XmlPackagePair } from '../offline/xmlPackage'
 import type { AdbStatus, DeviceInfo } from '../types'
 import BrandLogo from './BrandLogo'
+import ImportXmlPackageDialog from './ImportXmlPackageDialog'
 import PremiumGateDialog from './auth/PremiumGateDialog'
 import ThemeSwitcher from './ui/ThemeSwitcher'
 import type { ThemeMode } from '../hooks/useTheme'
 
 export type InspectionEntry = 'live' | 'offline' | 'mock'
 
-interface RecentSession {
-  id: string
-  label: string
-  kind: InspectionEntry
-  at: string
-}
-
 interface Props {
   theme: ThemeMode
   onThemeChange?: (theme: ThemeMode) => void
   onEnterLive: (deviceId: string, packageName?: string) => Promise<void>
-  onEnterOffline: (xml?: File, screenshot?: File) => Promise<void>
+  onOpenXmlPackages: (pairs: XmlPackagePair[], startIndex?: number) => Promise<void>
   onEnterMock: () => Promise<void>
+  onNotify?: (message: string, kind?: 'info' | 'success' | 'warning' | 'error') => void
   onOpenAccount?: () => void
   onOpenSubscription?: () => void
   onOpenLogin?: () => void
@@ -35,19 +33,9 @@ interface Props {
   onOpenAbout?: () => void
 }
 
-const RECENT_KEY = 'droidlens-recent-sessions'
-
-function loadRecent(): RecentSession[] {
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
-  } catch {
-    return []
-  }
-}
-
 export default function Dashboard({
-  theme, onThemeChange, onEnterLive, onEnterOffline, onEnterMock,
-  onOpenAccount, onOpenSubscription, onOpenLogin, onOpenRegister, onOpenAbout,
+  theme, onThemeChange, onEnterLive, onOpenXmlPackages, onEnterMock,
+  onNotify, onOpenAccount, onOpenSubscription, onOpenLogin, onOpenRegister, onOpenAbout,
 }: Props) {
   const { isLoggedIn, license, user, isAdmin, canAccess } = useAuth()
   const { config } = useSystemConfig()
@@ -60,8 +48,9 @@ export default function Dashboard({
   const [loading, setLoading] = useState<InspectionEntry | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<InspectionEntry | 'recent' | null>(null)
-  const [recent, setRecent] = useState<RecentSession[]>(loadRecent)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(loadRecentFiles)
+  const [importOpen, setImportOpen] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
 
   const liveLocked = !canAccess('live_inspection').allowed
   const offlineLocked = !canAccess('xml_upload').allowed
@@ -84,11 +73,8 @@ export default function Dashboard({
 
   useEffect(() => { refreshDevices() }, [refreshDevices])
 
-  const pushRecent = (kind: InspectionEntry, label: string) => {
-    const entry: RecentSession = { id: `${kind}-${Date.now()}`, kind, label, at: new Date().toISOString() }
-    const next = [entry, ...loadRecent().filter((r) => r.label !== label)].slice(0, 5)
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next))
-    setRecent(next)
+  const openImport = () => {
+    requestFeature('xml_upload', () => setImportOpen(true))
   }
 
   const handleLive = () => {
@@ -98,7 +84,6 @@ export default function Dashboard({
       setError(null)
       try {
         await onEnterLive(deviceId, packageName || undefined)
-        pushRecent('live', deviceId)
       } catch (e) {
         setError((e as Error).message)
       } finally {
@@ -112,7 +97,6 @@ export default function Dashboard({
     setError(null)
     try {
       await onEnterMock()
-      pushRecent('mock', 'Sample Project')
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -120,46 +104,64 @@ export default function Dashboard({
     }
   }
 
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files?.length) return
-    let xml: File | undefined
-    let screenshot: File | undefined
-    for (const f of Array.from(files)) {
-      if (f.name.endsWith('.xml') || f.name.endsWith('.uix') || f.type.includes('xml')) xml = f
-      else if (f.type.startsWith('image/')) screenshot = f
+  const handleOpenPackages = async (pairs: XmlPackagePair[], startIndex = 0) => {
+    setLoading('offline')
+    setError(null)
+    try {
+      await onOpenXmlPackages(pairs, startIndex)
+      setRecentFiles(loadRecentFiles())
+    } catch (e) {
+      setError((e as Error).message)
+      throw e
+    } finally {
+      setLoading(null)
     }
-    if (!xml && !screenshot) {
-      setError('Select an XML dump and/or screenshot')
+  }
+
+  const openRecentFile = (entry: RecentFileEntry) => {
+    if (!entry.xmlPath || !isElectron()) {
+      onNotify?.('Re-open this file with Open XML Package', 'info')
+      openImport()
       return
     }
     requestFeature('xml_upload', async () => {
       setLoading('offline')
-      setError(null)
       try {
-        await onEnterOffline(xml, screenshot)
-        pushRecent('offline', xml?.name || screenshot?.name || 'Offline dump')
-      } catch (err) {
-        setError((err as Error).message)
-      } finally {
-        setLoading(null)
-        e.target.value = ''
+        await handleOpenPackages([{
+          id: entry.xmlName,
+          label: entry.xmlName.replace(/\.(xml|uix)$/i, ''),
+          xmlPath: entry.xmlPath,
+          screenshotPath: entry.screenshotPath,
+        }])
+      } catch { /* error set in handleOpenPackages */ }
+    })
+  }
+
+  const handleDashboardDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files)
+    if (!files.length) return
+    requestFeature('xml_upload', async () => {
+      const { pairFilesFromList } = await import('../offline/xmlPackage')
+      const pairs = pairFilesFromList(files)
+      if (!pairs.length) {
+        setError('Drop an XML file (.xml) with optional matching PNG')
+        return
       }
+      await handleOpenPackages(pairs, 0)
     })
   }
 
   const toggle = (id: typeof expanded) => setExpanded(expanded === id ? null : id)
 
-  useEffect(() => {
-    if (!expanded) return
-    const t = window.setTimeout(() => {
-      document.querySelector('.dl-card.expanded')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }, 80)
-    return () => window.clearTimeout(t)
-  }, [expanded])
-
   return (
-    <div className="dashboard">
+    <div
+      className={`dashboard ${dragOver ? 'dashboard-drag-over' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDashboardDrop}
+    >
       <header className="dashboard-topbar">
         <div className="toolbar-brand">
           <BrandLogo size={32} />
@@ -171,10 +173,6 @@ export default function Dashboard({
         <div className="dashboard-auth-actions">
           {isLoggedIn ? (
             <>
-              {subscriptionOn && license?.status === 'lifetime' && <span className="license-pill lifetime">Lifetime License</span>}
-              {subscriptionOn && license?.status === 'payment_pending' && <span className="license-pill pending">Payment Pending</span>}
-              {subscriptionOn && trialText && <span className="license-pill trial">{trialText}</span>}
-              {subscriptionOn && license?.status === 'trial_expired' && <span className="license-pill expired">Trial Expired</span>}
               {!subscriptionOn && <span className="license-pill lifetime">Premium</span>}
               <button type="button" className="btn-secondary btn-sm" onClick={onOpenAccount}>
                 <User size={14} /> {user?.full_name.split(' ')[0]}
@@ -188,13 +186,11 @@ export default function Dashboard({
           ) : (
             <>
               <button type="button" className="btn-secondary btn-sm" onClick={onOpenLogin}>Sign In</button>
-              <button type="button" className="btn-primary btn-sm" onClick={onOpenRegister}>
-                {subscriptionOn ? 'Free Trial' : 'Sign Up'}
-              </button>
+              <button type="button" className="btn-primary btn-sm" onClick={onOpenRegister}>Sign Up</button>
             </>
           )}
           {onThemeChange && <ThemeSwitcher theme={theme} onChange={onThemeChange} />}
-          <button type="button" className="btn-icon copy-btn" onClick={onOpenAbout} title="About DroidLens" aria-label="About DroidLens">
+          <button type="button" className="btn-icon copy-btn" onClick={onOpenAbout} title="About DroidLens">
             <Info size={16} />
           </button>
         </div>
@@ -202,48 +198,26 @@ export default function Dashboard({
 
       <main className="dashboard-scroll" tabIndex={0} aria-label="Dashboard">
         {statusBanner && (
-          <div
-            className={`dashboard-status-banner ${
-              !subscriptionOn ? 'lifetime'
-              : license?.status === 'lifetime' ? 'lifetime'
-              : license?.status === 'payment_pending' ? 'pending'
-              : license?.status === 'trial_active' ? 'trial'
-              : license?.status === 'trial_expired' ? 'expired'
-              : 'guest'
-            }`}
-            role="status"
-          >
-            {statusBanner}
-          </div>
+          <div className="dashboard-status-banner lifetime" role="status">{statusBanner}</div>
         )}
 
         <section className="dashboard-hero">
           <BrandLogo size={64} />
           <h1>DroidLens</h1>
           <p className="brand-tagline">See. Inspect. Automate.</p>
-          <p>Enterprise-grade Android UI inspection for automation engineers.</p>
+          <p>Modern UIAutomatorViewer-style Android UI inspection — live ADB or offline XML + PNG.</p>
         </section>
 
         {error && <div className="dashboard-error" role="alert">{error}</div>}
 
         <div className="dashboard-grid">
-          <article
-            className={`dl-card ${expanded === 'live' ? 'expanded' : ''} ${liveLocked ? 'locked' : ''}`}
-            onClick={() => toggle('live')}
-          >
+          <article className={`dl-card ${expanded === 'live' ? 'expanded' : ''} ${liveLocked ? 'locked' : ''}`} onClick={() => toggle('live')}>
             {liveLocked && <Lock size={14} className="dl-card-lock" aria-hidden />}
             <div className="dl-card-icon live"><Monitor size={24} /></div>
             <h2>Connect Live Device</h2>
-            <p>Inspect a connected Android phone or emulator via ADB with live screenshot and hierarchy refresh.</p>
+            <p>Capture XML + screenshot from a connected Android device via ADB.</p>
             {expanded === 'live' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
-                {liveLocked && (
-                  <p className="locked-hint">
-                    {subscriptionOn
-                      ? 'Sign in and start your free trial to connect live devices.'
-                      : 'Sign in to connect live devices.'}
-                  </p>
-                )}
                 {adb && (
                   <div className="adb-summary">
                     <span className={adb.installed ? 'ok' : 'err'}>ADB {adb.installed ? 'ready' : 'not found'}</span>
@@ -263,7 +237,7 @@ export default function Dashboard({
                 <label className="field-label">Package (optional)</label>
                 <input className="full-width" placeholder="com.example.app" value={packageName} onChange={(e) => setPackageName(e.target.value)} disabled={liveLocked} />
                 <button type="button" className="btn-primary card-action" onClick={handleLive} disabled={loading === 'live' || !deviceId}>
-                  {loading === 'live' ? 'Connecting…' : liveLocked ? 'Sign In to Connect' : 'Start Live Inspection'}
+                  {loading === 'live' ? 'Connecting…' : 'Start Live Inspection'}
                 </button>
               </div>
             )}
@@ -271,14 +245,14 @@ export default function Dashboard({
 
           <article className={`dl-card ${expanded === 'offline' ? 'expanded' : ''} ${offlineLocked ? 'locked' : ''}`} onClick={() => toggle('offline')}>
             {offlineLocked && <Lock size={14} className="dl-card-lock" aria-hidden />}
-            <div className="dl-card-icon offline"><Upload size={24} /></div>
-            <h2>Open XML Dump</h2>
-            <p>Load a previously exported UI hierarchy XML with optional screenshot for offline analysis.</p>
+            <div className="dl-card-icon offline"><FileUp size={24} /></div>
+            <h2>Open XML Package</h2>
+            <p>Load UIAutomator XML dump + matching PNG screenshot. Auto-pairs <code>Login.xml</code> + <code>Login.png</code>.</p>
             {expanded === 'offline' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
-                <input ref={fileRef} type="file" accept=".xml,.uix,image/*" multiple hidden onChange={handleFiles} />
-                <button type="button" className="btn-primary card-action" onClick={() => fileRef.current?.click()} disabled={loading === 'offline'}>
-                  {loading === 'offline' ? 'Loading…' : offlineLocked ? 'Sign In to Upload' : 'Choose Files & Inspect'}
+                <p className="upload-hint">Drag files onto the dashboard or use the import dialog.</p>
+                <button type="button" className="btn-primary card-action" onClick={openImport} disabled={loading === 'offline'}>
+                  {loading === 'offline' ? 'Loading…' : 'Open XML Package…'}
                 </button>
               </div>
             )}
@@ -287,7 +261,7 @@ export default function Dashboard({
           <article className={`dl-card ${expanded === 'mock' ? 'expanded' : ''}`} onClick={() => toggle('mock')}>
             <div className="dl-card-icon mock"><Database size={24} /></div>
             <h2>Open Sample Project</h2>
-            <p>Explore DroidLens with bundled sample XML and screenshot — no account required.</p>
+            <p>Explore DroidLens with bundled sample data — no device required.</p>
             {expanded === 'mock' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="btn-primary card-action" onClick={handleMock} disabled={loading === 'mock'}>
@@ -299,17 +273,21 @@ export default function Dashboard({
 
           <article className={`dl-card ${expanded === 'recent' ? 'expanded' : ''}`} onClick={() => toggle('recent')}>
             <div className="dl-card-icon recent"><Clock size={24} /></div>
-            <h2>Recent Sessions</h2>
-            <p>Quick access to your last inspection sessions.</p>
+            <h2>Recent Files</h2>
+            <p>Quick access to recently opened XML files (paths only — no copies).</p>
             {expanded === 'recent' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
-                {recent.length === 0 ? (
-                  <p className="upload-hint">No recent sessions yet.</p>
+                {recentFiles.length === 0 ? (
+                  <p className="upload-hint">No recent files yet.</p>
                 ) : (
-                  <ul className="upload-list">
-                    {recent.map((r) => (
-                      <li key={r.id}>
-                        <strong className="capitalize">{r.kind}</strong> — {r.label}
+                  <ul className="recent-files-list">
+                    {recentFiles.map((r) => (
+                      <li key={`${r.xmlPath ?? r.xmlName}-${r.openedAt}`}>
+                        <button type="button" className="recent-file-btn" onClick={() => openRecentFile(r)}>
+                          <Download size={12} aria-hidden />
+                          {r.xmlName}
+                        </button>
+                        <span className="recent-file-time">{new Date(r.openedAt).toLocaleString()}</span>
                       </li>
                     ))}
                   </ul>
@@ -320,13 +298,15 @@ export default function Dashboard({
         </div>
 
         <footer className="dashboard-footer">
-          {!isLoggedIn
-            ? subscriptionOn
-              ? 'Try the free sample project instantly. Create an account for a 7-day full-feature trial.'
-              : 'Try the free sample project instantly. Sign in for full premium access.'
-            : 'Select an inspection mode to begin.'}
+          Drop <strong>.xml</strong> + <strong>.png</strong> anywhere on this screen, or export packages from Live Inspector.
         </footer>
       </main>
+
+      <ImportXmlPackageDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onOpen={handleOpenPackages}
+      />
 
       <PremiumGateDialog
         open={gateOpen}

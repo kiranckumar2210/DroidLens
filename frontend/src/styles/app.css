@@ -1318,6 +1318,231 @@
   font-size: 12px;
 }
 
+.dashboard-drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  background-color: rgba(59, 130, 246, 0.06);
+}
+
+.app-drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* Recent files (dashboard) */
+.recent-files-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recent-files-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.recent-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-file-btn:hover {
+  text-decoration: underline;
+}
+
+.recent-file-time {
+  font-size: 10px;
+  color: var(--text-hint);
+  flex-shrink: 0;
+}
+
+/* Import XML package dialog */
+.import-xml-modal {
+  max-width: 560px;
+  padding: 24px;
+}
+
+.import-xml-modal h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.modal-subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.import-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  margin-bottom: 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.import-drop-zone:hover {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.import-file-row {
+  margin-bottom: 12px;
+}
+
+.import-browse-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.import-file-name {
+  font-size: 12px;
+  color: var(--text-hint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.import-preview {
+  margin: 12px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 180px;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-primary);
+}
+
+.import-preview img {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.import-hint {
+  font-size: 12px;
+  color: var(--warning);
+  margin: 0 0 12px;
+}
+
+/* Offline batch screen nav */
+.inspector-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.inspector-layout > .workspace {
+  flex: 1;
+  min-width: 0;
+}
+
+.offline-screen-nav {
+  flex-shrink: 0;
+  width: 180px;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.offline-screen-nav-title {
+  padding: 12px 14px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-hint);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.offline-screen-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.offline-screen-nav li + li {
+  margin-top: 4px;
+}
+
+.offline-screen-nav button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offline-screen-nav button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.offline-screen-nav button.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.offline-screen-badge {
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-hint);
+  flex-shrink: 0;
+}
+
 @media (max-height: 800px), (max-width: 900px) {
   .dashboard-hero {
     padding: 28px 20px 20px;

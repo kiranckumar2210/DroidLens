@@ -170,6 +170,7 @@ export interface InspectionSession {
   device_id: string
   platform: Platform
   mode: SessionMode
+  package?: string | null
   tree?: ElementNode | null
   screenshot_base64?: string | null
   raw_xml?: string | null

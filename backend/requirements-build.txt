@@ -1,0 +1,3 @@
+# Minimal Python deps for CI/local desktop packaging (icon generation only).
+# Full backend runtime deps live in requirements.txt.
+pillow>=10.2.0
