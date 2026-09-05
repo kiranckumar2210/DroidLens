@@ -259,7 +259,7 @@ backend/inspectiq/
 └── api/               # FastAPI REST + WebSocket routes
 ```
 
-See also: [`docs/architecture.md`](docs/architecture.md) · [`docs/droidlens-under-the-hood.md`](docs/droidlens-under-the-hood.md)
+See also: [`docs/architecture.md`](docs/architecture.md) · [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md) · [`docs/droidlens-under-the-hood.md`](docs/droidlens-under-the-hood.md)
 
 ---
 

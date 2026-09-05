@@ -19,6 +19,8 @@ See git history — live/offline inspection, locator engine, XML packages, expor
 
 ### Cloud device farm setup
 
+See **[docs/PLATFORM-GUIDE.md § Cloud device farm](PLATFORM-GUIDE.md#6-cloud-device-farm-appium)** for BrowserStack, Sauce Labs, and env var examples.
+
 ```bash
 export DROIDLENS_APPIUM_URL="https://hub.browserstack.com/wd/hub"
 export DROIDLENS_APPIUM_CAPABILITIES='{"platformName":"Android","deviceName":"Samsung Galaxy S23","app":"bs://..."}'
@@ -27,6 +29,8 @@ export DROIDLENS_APPIUM_CAPABILITIES='{"platformName":"Android","deviceName":"Sa
 When configured, a **Cloud — …** device appears in the Android device list.
 
 ### iOS live inspection
+
+See **[docs/PLATFORM-GUIDE.md § iOS](PLATFORM-GUIDE.md#4-ios-live)** for full Simulator + WDA setup.
 
 1. Boot an iOS Simulator (macOS + Xcode) or connect a physical device
 2. Start WebDriverAgent (Appium or standalone) on port 8100
