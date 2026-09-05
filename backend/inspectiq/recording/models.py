@@ -164,5 +164,14 @@ class RecordingExportResponse(BaseModel):
     step_count: int
 
 
+class PageObjectExportResponse(BaseModel):
+    session_id: str
+    class_name: str
+    page_object: str
+    test_script: str
+    element_count: int
+    step_count: int
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)

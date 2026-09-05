@@ -10,6 +10,7 @@ from inspectiq.recording.models import (
     RecordActionRequest,
     ExecuteActionRequest,
     RecordingExportResponse,
+    PageObjectExportResponse,
     RecordingSession,
     RecordingSettings,
     ReorderStepsRequest,
@@ -215,5 +216,21 @@ def export_script(session_id: str, _user=Depends(require_premium), engine: Smart
 def export_json(session_id: str, _user=Depends(require_premium), engine: SmartRecordingEngine = Depends(get_engine)):
     try:
         return engine.export_json(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/{session_id}/export/page-object", response_model=PageObjectExportResponse)
+def export_page_object(session_id: str, _user=Depends(require_premium), engine: SmartRecordingEngine = Depends(get_engine)):
+    try:
+        bundle = engine.export_page_object(session_id)
+        return PageObjectExportResponse(
+            session_id=session_id,
+            class_name=bundle["class_name"],
+            page_object=bundle["page_object"],
+            test_script=bundle["test_script"],
+            element_count=bundle["element_count"],
+            step_count=bundle["step_count"],
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

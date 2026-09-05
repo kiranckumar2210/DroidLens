@@ -7,7 +7,7 @@ import { getApiDocsUrl, isElectron } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { LicenseInfo } from '../auth/types'
 import {
-  ABOUT_DESCRIPTION, FEATURE_CATEGORIES, RELEASE_NOTES_V1, RELEASE_NOTES_V11, TECH_STACK,
+  ABOUT_DESCRIPTION, FEATURE_CATEGORIES, RELEASE_NOTES_V1, RELEASE_NOTES_V11, RELEASE_NOTES_V12, TECH_STACK,
 } from '../data/aboutContent'
 import {
   APP_AUTHOR, APP_COPYRIGHT, APP_EMAIL, APP_NAME, APP_TAGLINE,
@@ -178,7 +178,7 @@ export default function AboutDialog({ open, onClose, onOpenLicense }: Props) {
             <section className="about-section about-release-panel">
               <h3><ScrollText size={16} /> Release Notes — v{version}</h3>
               <ul>
-                {(version.startsWith('1.1') ? RELEASE_NOTES_V11 : RELEASE_NOTES_V1).map((note) => (
+                {(version.startsWith('1.2') ? RELEASE_NOTES_V12 : version.startsWith('1.1') ? RELEASE_NOTES_V11 : RELEASE_NOTES_V1).map((note) => (
                   <li key={note}>{note}</li>
                 ))}
               </ul>

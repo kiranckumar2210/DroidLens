@@ -3584,3 +3584,100 @@
 .offline-screen-nav:has(.offline-package-notes) {
   min-width: 160px;
 }
+
+/* v1.2 — XML diff, locator health */
+.xml-diff-modal,
+.locator-health-modal {
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.xml-diff-pickers {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.file-picked {
+  display: block;
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+.xml-diff-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.xml-diff-stats .added { color: #22c55e; }
+.xml-diff-stats .removed { color: #ef4444; }
+.xml-diff-stats .changed { color: #f59e0b; }
+
+.xml-diff-results section {
+  margin-top: 12px;
+}
+
+.xml-diff-results ul {
+  font-size: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.health-results {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.health-report-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-2);
+}
+
+.health-report-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.health-score.good { color: #22c55e; }
+.health-score.warn { color: #f59e0b; }
+.health-score.bad { color: #ef4444; }
+
+.health-issue-list {
+  font-size: 12px;
+  margin: 8px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.health-issue-list li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.health-issue-list .issue-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  margin-right: 6px;
+  opacity: 0.7;
+}
+
+.health-issue-list .severity-error { color: #ef4444; }
+.health-issue-list .severity-warn { color: #f59e0b; }
+
+.dl-card-icon.tools {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.dashboard-grid .card-action + .card-action {
+  margin-top: 8px;
+}

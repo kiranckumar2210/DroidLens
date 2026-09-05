@@ -115,6 +115,7 @@ export default function RecordingStudio({
     getLiveScript,
     copyScript,
     downloadScript,
+    downloadPageObject,
     updateSettings,
     clear,
     pause,
@@ -228,6 +229,15 @@ export default function RecordingStudio({
     }
   }, [downloadScript, settings.language_profile, onNotify])
 
+  const handleDownloadPageObject = useCallback(async () => {
+    try {
+      const bundle = await downloadPageObject()
+      onNotify(`Exported ${bundle.class_name} page object + test`, 'success')
+    } catch (e) {
+      onNotify((e as Error).message, 'error')
+    }
+  }, [downloadPageObject, onNotify])
+
   const handleMoveStep = useCallback((stepId: string, direction: 'up' | 'down') => {
     const ids = steps.map((s) => s.id)
     const idx = ids.indexOf(stepId)
@@ -256,6 +266,7 @@ export default function RecordingStudio({
         onSave={() => onNotify('Session saved automatically', 'info')}
         onCopy={() => void handleCopy()}
         onDownload={() => void handleDownload()}
+        onDownloadPageObject={() => void handleDownloadPageObject()}
         onLanguageChange={(p) => void updateSettings({ language_profile: p })}
         onResetLayout={() => setLayout(resetStudioLayout())}
         onTogglePanel={(panel) => setLayout((l) => togglePanelCollapse(l, panel))}

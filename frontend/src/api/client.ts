@@ -404,6 +404,27 @@ export const api = {
   exportRecordingScript: (session_id: string) =>
     request<{ content: string; step_count: number }>(`/recording/${session_id}/export/script`),
 
+  exportRecordingPageObject: (session_id: string) =>
+    request<{
+      class_name: string
+      page_object: string
+      test_script: string
+      element_count: number
+      step_count: number
+    }>(`/recording/${session_id}/export/page-object`),
+
+  xmlDiff: (baseline_xml: string, compare_xml: string) =>
+    request<import('../components/XmlDiffDialog').XmlDiffResult>('/offline/xml-diff', {
+      method: 'POST',
+      body: JSON.stringify({ baseline_xml, compare_xml }),
+    }),
+
+  locatorHealthScan: (xml_content: string, screen_name = 'Screen') =>
+    request<import('../components/LocatorHealthDialog').LocatorHealthReport>('/offline/locator-health', {
+      method: 'POST',
+      body: JSON.stringify({ xml_content, screen_name }),
+    }),
+
   deleteRecordingStep: (session_id: string, step_id: string) =>
     request<import('../recording/types').RecordingSession>(`/recording/${session_id}/steps/${step_id}`, {
       method: 'DELETE',

@@ -12,19 +12,19 @@
 - [x] Electron desktop with splash + branding
 - [x] UIAutomatorViewer-style XML package import/export
 
-## v1.1 (Current)
+## v1.1
 
 - [x] Locator repository export (JSON / CSV / Markdown)
 - [x] Session history and restore (live + offline + mock)
 - [x] Favorites for locators (localStorage)
 - [x] Package notes on offline screens
-- [x] Inspector keyboard shortcuts (F5, Ctrl+F, Ctrl+Shift+E, Ctrl+L)
+- [x] Inspector keyboard shortcuts
 
-## v1.2 (Planned)
+## v1.2 (Current)
 
-- [ ] XML diff — compare two dumps, highlight changes
-- [ ] Page Object Model export from recorder
-- [ ] Locator health scan across XML package folders
+- [x] XML diff — compare two dumps, highlight added/removed/changed
+- [x] Page Object Model export from Recording Studio
+- [x] Locator health scan (single file, folder batch, current session)
 
 ## v2.0
 

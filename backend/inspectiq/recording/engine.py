@@ -436,6 +436,78 @@ class SmartRecordingEngine(RecordingEngine):
         self._optimizer.optimize(session)
         return self._codegen.assemble_script(session)
 
+    def export_page_object(self, session_id: str) -> dict:
+        from inspectiq.codegen.uiautomator2_generator import UiAutomator2CodeGenerator
+        from inspectiq.recording.models import RecordedActionType
+
+        session = self._require(session_id)
+        gen = UiAutomator2CodeGenerator()
+        page_name = session.settings.page_name or "RecordedScreen"
+        class_name = gen._to_class_name(page_name)
+        module_name = gen._to_snake(page_name)
+
+        elements: list = []
+        seen: set[str] = set()
+        for step in session.steps:
+            if not step.enabled or not step.element or not step.locator:
+                continue
+            key = f"{step.locator.locator_type}:{step.locator.value}"
+            if key in seen:
+                continue
+            seen.add(key)
+            elements.append((step.element, step.locator))
+
+        page_object = gen.generate_wrapper_export(page_name, elements)
+
+        test_lines = [
+            f'"""Auto-generated test for {page_name} — DroidLens Recording Studio."""',
+            "",
+            "import uiautomator2 as u2",
+            "",
+            f"# Save page_object.py alongside this file, then: from {module_name} import {class_name}",
+            "",
+            "",
+            f"def test_{module_name}_recorded_flow():",
+            "    device = u2.connect()",
+            f"    screen = {class_name}(device)",
+            "",
+        ]
+        for step in session.steps:
+            if not step.enabled or not step.element or not step.locator:
+                continue
+            if step.action_type not in (
+                RecordedActionType.TAP,
+                RecordedActionType.DOUBLE_TAP,
+                RecordedActionType.LONG_PRESS,
+                RecordedActionType.SET_TEXT,
+            ):
+                continue
+            prop = gen._to_snake(
+                step.element.resource_id.split("/")[-1] if step.element.resource_id
+                else step.element.text or step.element.content_desc
+                or step.element.class_name.split(".")[-1]
+            )
+            if step.action_type == RecordedActionType.SET_TEXT and step.text_value:
+                test_lines.append(f'    screen.{prop}().set_text({step.text_value!r})')
+            elif step.action_type == RecordedActionType.LONG_PRESS:
+                test_lines.append(f"    screen.{prop}().long_click()")
+            elif step.action_type == RecordedActionType.DOUBLE_TAP:
+                test_lines.append(f"    screen.{prop}().click()")
+                test_lines.append(f"    screen.{prop}().click()")
+            else:
+                test_lines.append(f"    screen.tap_{prop}()")
+
+        test_lines.extend(["", '    assert device.info.get("currentPackage")', ""])
+        test_script = "\n".join(test_lines)
+
+        return {
+            "class_name": class_name,
+            "page_object": page_object,
+            "test_script": test_script,
+            "element_count": len(elements),
+            "step_count": len([s for s in session.steps if s.enabled]),
+        }
+
     def get_session(self, session_id: str) -> RecordingSession:
         return self._require(session_id)
 

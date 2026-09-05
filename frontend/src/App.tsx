@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CircleDot, Code2, Download, FileUp, Info, Play, Radio, RefreshCw, Save, Search,
+  CircleDot, Code2, Download, FileUp, Info, Play, Radio, RefreshCw, Save, Search, ShieldAlert,
 } from 'lucide-react'
 import { api } from './api/client'
 import { useAuth } from './auth/AuthContext'
@@ -16,6 +16,7 @@ import DevicePanel from './components/DevicePanel'
 import ElementTree from './components/ElementTree'
 import ImportXmlPackageDialog from './components/ImportXmlPackageDialog'
 import InspectorPanel from './components/InspectorPanel'
+import LocatorHealthDialog from './components/LocatorHealthDialog'
 import LocatorExportModal from './components/LocatorExportModal'
 import SaveModal from './components/SaveModal'
 import OfflineScreenNav from './components/OfflineScreenNav'
@@ -167,6 +168,7 @@ function AppShell({
   const [recorderOpen, setRecorderOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [locatorExportOpen, setLocatorExportOpen] = useState(false)
+  const [healthOpen, setHealthOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -572,6 +574,15 @@ function AppShell({
           <button
             type="button"
             className="btn-secondary"
+            onClick={() => requestFeature('xml_upload', () => setHealthOpen(true))}
+            disabled={!sm.session?.raw_xml}
+            title="Scan locator health for current XML"
+          >
+            <ShieldAlert size={14} /> Health
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
             onClick={() => void handleExportPackage()}
             disabled={!sm.session?.raw_xml || !sm.session?.screenshot_base64}
             title="Export XML + PNG to folder (UIAutomatorViewer style)"
@@ -890,6 +901,14 @@ function AppShell({
         screenName={sm.currentPackageLabel || sm.packageName || undefined}
         packageName={sm.packageName || sm.session?.package || undefined}
         elementName={elementName()}
+        onNotify={notify}
+      />
+
+      <LocatorHealthDialog
+        open={healthOpen}
+        onClose={() => setHealthOpen(false)}
+        initialXml={sm.session?.raw_xml}
+        initialScreenName={sm.currentPackageLabel || sm.packageName || undefined}
         onNotify={notify}
       />
     </div>

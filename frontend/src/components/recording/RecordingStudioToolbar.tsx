@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, Circle, Copy, Download, LayoutGrid,
+  ArrowLeft, Circle, Copy, Download, LayoutGrid, Layers,
   Pause, Play, RotateCcw, Save, Square,
 } from 'lucide-react'
 import { LANGUAGE_PROFILES } from '../../recording/types'
@@ -22,6 +22,7 @@ interface Props {
   onSave: () => void
   onCopy: () => void
   onDownload: () => void
+  onDownloadPageObject: () => void
   onLanguageChange: (profile: string) => void
   onResetLayout: () => void
   onTogglePanel: (panel: 'left' | 'middle' | 'right') => void
@@ -49,6 +50,7 @@ export default function RecordingStudioToolbar({
   onSave,
   onCopy,
   onDownload,
+  onDownloadPageObject,
   onLanguageChange,
   onResetLayout,
   onTogglePanel,
@@ -118,6 +120,9 @@ export default function RecordingStudioToolbar({
         </button>
         <button type="button" className="btn-icon copy-btn" disabled={!hasScript} onClick={onDownload} title="Download script">
           <Download size={14} />
+        </button>
+        <button type="button" className="btn-secondary btn-sm" disabled={!hasScript} onClick={onDownloadPageObject} title="Export Page Object + test">
+          <Layers size={14} /> POM
         </button>
         <div className="rst-layout-group">
           <button type="button" className="btn-icon copy-btn" onClick={() => onTogglePanel('left')} title="Toggle screenshot panel">L</button>

@@ -214,6 +214,16 @@ export function useRecording(deviceId: string | null, packageName: string) {
     downloadTextFile(text, recordingFilename(settings.language_profile))
   }, [resolveScriptText, settings.language_profile])
 
+  const downloadPageObject = useCallback(async () => {
+    if (!session) throw new Error('No recording session')
+    const bundle = await api.exportRecordingPageObject(session.id)
+    if (!bundle.page_object.trim()) throw new Error('Record steps with elements first')
+    const module = bundle.class_name.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '') || 'screen'
+    downloadTextFile(bundle.page_object, `${module}_page.py`)
+    downloadTextFile(bundle.test_script, `test_${module}.py`)
+    return bundle
+  }, [session])
+
   const state: RecordingState = session?.state ?? 'ready'
   const isRecording = state === 'recording'
   const isPaused = state === 'paused'
@@ -247,6 +257,7 @@ export function useRecording(deviceId: string | null, packageName: string) {
     exportScript,
     copyScript,
     downloadScript,
+    downloadPageObject,
     refresh,
   }
 }

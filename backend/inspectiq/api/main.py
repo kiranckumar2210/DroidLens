@@ -32,6 +32,8 @@ from inspectiq.domain.models import (
     LocatorComparisonResult,
     Platform,
     SaveElementRequest,
+    XmlDiffRequest,
+    LocatorHealthScanRequest,
     ScriptFramework,
     ScriptLanguage,
 )
@@ -295,6 +297,26 @@ async def upload_offline_files(
         return inspection.create_offline_session(xml_content, screenshot_b64)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/offline/xml-diff")
+async def xml_diff(req: XmlDiffRequest, _user: AuthUser = Depends(require_premium)):
+    from inspectiq.offline.xml_diff import diff_xml
+
+    try:
+        return diff_xml(req.baseline_xml, req.compare_xml).to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"XML diff failed: {e}")
+
+
+@app.post("/offline/locator-health")
+async def locator_health_scan(req: LocatorHealthScanRequest, _user: AuthUser = Depends(require_premium)):
+    from inspectiq.offline.locator_health import scan_xml_health
+
+    try:
+        return scan_xml_health(req.xml_content, req.screen_name).to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Health scan failed: {e}")
 
 
 @app.get("/session/{device_id}")

@@ -384,3 +384,13 @@ class ProjectSummary(BaseModel):
     element_count: int = 0
     created_at: datetime
 
+
+class XmlDiffRequest(BaseModel):
+    baseline_xml: str
+    compare_xml: str
+
+
+class LocatorHealthScanRequest(BaseModel):
+    xml_content: str
+    screen_name: str = "Screen"
+

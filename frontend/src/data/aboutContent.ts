@@ -164,3 +164,10 @@ export const RELEASE_NOTES_V11 = [
   'Package notes — annotate offline XML screens; included in metadata export',
   'Keyboard shortcuts — F5 refresh, Ctrl+F search, Ctrl+Shift+E export, Ctrl+L live refresh toggle',
 ]
+
+export const RELEASE_NOTES_V12 = [
+  'XML Diff — compare two UIAutomator dumps; see added, removed, and changed elements',
+  'Locator Health Scan — detect fragile locators, duplicate resource-ids, missing labels',
+  'Batch folder health scan in desktop app',
+  'Recording Studio — export Page Object Model + pytest test file (POM button)',
+]

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Clock, Database, FileUp, Info, Lock, Monitor, RefreshCw, Settings, User,
+  Clock, Database, FileUp, GitCompare, Info, Lock, Monitor, RefreshCw, Settings, ShieldAlert, User,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { isElectron } from '../api/baseUrl'
@@ -14,6 +14,8 @@ import type { XmlPackagePair } from '../offline/xmlPackage'
 import type { AdbStatus, DeviceInfo } from '../types'
 import BrandLogo from './BrandLogo'
 import ImportXmlPackageDialog from './ImportXmlPackageDialog'
+import XmlDiffDialog from './XmlDiffDialog'
+import LocatorHealthDialog from './LocatorHealthDialog'
 import PremiumGateDialog from './auth/PremiumGateDialog'
 import ThemeSwitcher from './ui/ThemeSwitcher'
 import type { ThemeMode } from '../hooks/useTheme'
@@ -48,10 +50,12 @@ export default function Dashboard({
   const [packageName, setPackageName] = useState('')
   const [loading, setLoading] = useState<InspectionEntry | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<InspectionEntry | 'recent' | null>(null)
+  const [expanded, setExpanded] = useState<InspectionEntry | 'recent' | 'tools' | null>(null)
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(loadRecentFiles)
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryEntry[]>(loadSessionHistory)
   const [importOpen, setImportOpen] = useState(false)
+  const [diffOpen, setDiffOpen] = useState(false)
+  const [healthOpen, setHealthOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
 
   const liveLocked = !canAccess('live_inspection').allowed
@@ -311,6 +315,22 @@ export default function Dashboard({
             )}
           </article>
 
+          <article className={`dl-card ${expanded === 'tools' ? 'expanded' : ''}`} onClick={() => toggle('tools')}>
+            <div className="dl-card-icon tools"><GitCompare size={24} /></div>
+            <h2>Offline Tools</h2>
+            <p>Compare XML dumps across builds and scan locator health across screens.</p>
+            {expanded === 'tools' && (
+              <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="btn-secondary card-action" onClick={() => requestFeature('xml_upload', () => setDiffOpen(true))}>
+                  <GitCompare size={14} /> Compare XML Dumps
+                </button>
+                <button type="button" className="btn-secondary card-action" onClick={() => requestFeature('xml_upload', () => setHealthOpen(true))}>
+                  <ShieldAlert size={14} /> Locator Health Scan
+                </button>
+              </div>
+            )}
+          </article>
+
           <article className={`dl-card ${expanded === 'recent' ? 'expanded' : ''}`} onClick={() => toggle('recent')}>
             <div className="dl-card-icon recent"><Clock size={24} /></div>
             <h2>Recent Sessions</h2>
@@ -358,6 +378,9 @@ export default function Dashboard({
         onClose={() => setImportOpen(false)}
         onOpen={handleOpenPackages}
       />
+
+      <XmlDiffDialog open={diffOpen} onClose={() => setDiffOpen(false)} onNotify={onNotify} />
+      <LocatorHealthDialog open={healthOpen} onClose={() => setHealthOpen(false)} onNotify={onNotify} />
 
       <PremiumGateDialog
         open={gateOpen}
