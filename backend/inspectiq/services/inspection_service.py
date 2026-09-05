@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from inspectiq.adapters.base import PlatformAdapter, get_adapter
 from inspectiq.adapters.android_adapter import AndroidAdapter
+from inspectiq.adapters.cloud_adapter import CLOUD_DEVICE_ID, CloudAppiumAdapter
 from inspectiq.adapters.mock_adapter import MockAdapter
 from inspectiq.codegen.multi_language_generator import MultiLanguageCodeGenerator
 from inspectiq.codegen.script_generator import ScriptGenerator
@@ -38,6 +39,7 @@ from inspectiq.engine.coordinate_mapper import (
 )
 from inspectiq.engine.element_selector import SmartElementSelector
 from inspectiq.engine.xml_parser import AndroidXmlParser
+from inspectiq.engine.ios_parser import IOSXmlParser
 from inspectiq.locator.engine import LocatorEngine
 from inspectiq.locator.raw_validator import RawLocatorValidator
 from inspectiq.locator.uiautomator2 import CustomLocatorBuilder
@@ -63,7 +65,25 @@ class InspectionService:
         self._custom_builder = CustomLocatorBuilder()
         self._raw_validator = RawLocatorValidator()
         self._xml_parser = AndroidXmlParser()
+        self._ios_parser = IOSXmlParser()
         self._android = AndroidAdapter()
+        self._cloud = CloudAppiumAdapter()
+
+    @staticmethod
+    def is_valid_ui_xml(raw: str, platform: Platform) -> bool:
+        if not raw or not raw.strip():
+            return False
+        if platform == Platform.IOS:
+            return "XCUIElementType" in raw or "AppiumAUT" in raw or "<?xml" in raw
+        if platform == Platform.HARMONYOS:
+            return "<?xml" in raw or raw.lstrip().startswith("<")
+        return "<?xml" in raw or "<hierarchy" in raw
+
+    @staticmethod
+    def detect_platform_from_xml(raw: str) -> Platform:
+        if "XCUIElementType" in raw or "AppiumAUT" in raw:
+            return Platform.IOS
+        return Platform.ANDROID
 
     @staticmethod
     def is_mock_device(device_id: str) -> bool:
@@ -74,12 +94,18 @@ class InspectionService:
         if self.is_mock_device(device_id):
             logger.debug("Using mock adapter for device_id=%s", device_id)
             return get_adapter(platform, use_mock=True)
+        if device_id == CLOUD_DEVICE_ID:
+            return self._cloud
         if platform == Platform.ANDROID:
             return self._android
         return get_adapter(platform, use_mock=False)
 
     async def list_devices(self, platform: Platform):
-        return await get_adapter(platform, use_mock=False).list_devices()
+        devices = await get_adapter(platform, use_mock=False).list_devices()
+        if self._cloud.is_configured():
+            cloud_devices = await self._cloud.list_devices()
+            devices = [*devices, *cloud_devices]
+        return devices
 
     async def connect_live_device(self, device_id: str, platform: Platform) -> None:
         if self.is_mock_device(device_id):
@@ -100,12 +126,14 @@ class InspectionService:
             )
 
         t0 = time.monotonic()
+        if device_id == CLOUD_DEVICE_ID:
+            platform = self._cloud.platform
         adapter = self._adapter_for(platform, device_id)
         logger.info("Live refresh started: serial=%s", device_id)
 
         logger.debug("Capturing UI hierarchy: serial=%s", device_id)
         raw_xml = await adapter.dump_ui(device_id)
-        if not raw_xml or ("<?xml" not in raw_xml and "<hierarchy" not in raw_xml):
+        if not self.is_valid_ui_xml(raw_xml, platform):
             raise RuntimeError("UI dump returned empty or invalid XML")
         logger.info("UI hierarchy captured: serial=%s bytes=%d", device_id, len(raw_xml))
 
@@ -130,6 +158,11 @@ class InspectionService:
         if isinstance(adapter, AndroidAdapter):
             screenshot_width, screenshot_height = adapter.get_adb().png_dimensions(screenshot_bytes)
             tree, rotation = adapter.parse_with_rotation(raw_xml)
+        elif platform == Platform.IOS or isinstance(adapter, CloudAppiumAdapter) and adapter.platform == Platform.IOS:
+            tree = adapter.parse_ui_dump(raw_xml)
+            if tree.bounds and tree.bounds.x2 and tree.bounds.y2:
+                screenshot_width = screenshot_width or tree.bounds.x2
+                screenshot_height = screenshot_height or tree.bounds.y2
         else:
             tree = adapter.parse_ui_dump(raw_xml)
 
@@ -185,7 +218,7 @@ class InspectionService:
         adapter = self._adapter_for(platform, device_id)
         try:
             raw_xml = await adapter.dump_ui(device_id)
-            if not raw_xml or "<hierarchy" not in raw_xml:
+            if not self.is_valid_ui_xml(raw_xml, platform):
                 return existing
 
             if isinstance(adapter, AndroidAdapter):
@@ -230,9 +263,14 @@ class InspectionService:
         rotation = 0
         screen_w, screen_h = 1080, 1920
         screenshot_w, screenshot_h = screen_w, screen_h
+        platform = Platform.ANDROID
 
         if raw_xml:
-            tree, rotation = self._xml_parser.parse(raw_xml)
+            platform = self.detect_platform_from_xml(raw_xml)
+            if platform == Platform.IOS:
+                tree = self._ios_parser.parse(raw_xml)
+            else:
+                tree, rotation = self._xml_parser.parse(raw_xml)
 
         if screenshot_base64:
             png = base64.b64decode(screenshot_base64)
@@ -254,7 +292,7 @@ class InspectionService:
 
         session = InspectionSession(
             device_id=sid,
-            platform=Platform.ANDROID,
+            platform=platform,
             mode=SessionMode.OFFLINE,
             package=package,
             tree=tree,
@@ -396,28 +434,29 @@ class InspectionService:
             return None
         return self._custom_builder.build(session.tree, request)
 
-    async def load_mock_session(self) -> InspectionSession:
+    async def load_mock_session(self, platform: Platform = Platform.ANDROID) -> InspectionSession:
         """Load bundled mock XML + screenshot — never used for live inspection."""
-        logger.info("Loading mock sample session")
-        adapter = MockAdapter(Platform.ANDROID)
-        device_id = "mock-android-001"
+        logger.info("Loading mock sample session platform=%s", platform.value)
+        adapter = MockAdapter(platform)
+        device_id = f"mock-{platform.value}-001"
         raw_xml = await adapter.dump_ui(device_id)
         screenshot_bytes = await adapter.screenshot(device_id)
         tree = adapter.parse_ui_dump(raw_xml)
+        w, h = await adapter.get_screen_size(device_id)
         session = InspectionSession(
             device_id=device_id,
-            platform=Platform.ANDROID,
+            platform=platform,
             mode=SessionMode.OFFLINE,
             tree=tree,
             screenshot_base64=base64.b64encode(screenshot_bytes).decode("ascii"),
             raw_xml=raw_xml,
-            screen_width=1080,
-            screen_height=1920,
-            screenshot_width=1080,
-            screenshot_height=1920,
+            screen_width=w,
+            screen_height=h,
+            screenshot_width=w,
+            screenshot_height=h,
         )
         self._sessions[device_id] = session
-        logger.info("Mock session ready: id=%s", device_id)
+        logger.info("Mock session ready: id=%s platform=%s", device_id, platform.value)
         return session
 
     def validate_raw_locator(self, device_id: str, locator_type: str, expression: str) -> Optional[dict]:

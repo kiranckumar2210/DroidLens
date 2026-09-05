@@ -15,6 +15,7 @@ import type {
   ElementInspectionResult,
   InspectionSession,
   LocatorCandidate,
+  Platform,
 } from '../types'
 import {
   defaultPersistedState,
@@ -35,6 +36,7 @@ export interface InspectionSessionContextValue {
   screen: AppScreen
   sessionKind: SessionKind
   deviceId: string
+  platform: Platform
   session: InspectionSession | null
   inspection: ElementInspectionResult | null
   selectedLocator: LocatorCandidate | null
@@ -59,14 +61,14 @@ export interface InspectionSessionContextValue {
   setHighlightIds: (ids: string[]) => void
   setLiveRefresh: (v: boolean) => void
   setSelectedLocator: (loc: LocatorCandidate | null) => void
-  enterLiveInspector: (devId: string, pkg?: string) => Promise<void>
+  enterLiveInspector: (devId: string, platform: Platform, pkg?: string) => Promise<void>
   enterOfflinePackages: (pairs: XmlPackagePair[], startIndex?: number) => Promise<void>
   enterOfflineInspector: (xml?: File, screenshot?: File) => Promise<void>
   switchOfflinePackage: (index: number) => Promise<void>
   offlinePackages: XmlPackagePair[]
   activePackageIndex: number
   currentPackageLabel: string
-  enterMockInspector: () => Promise<void>
+  enterMockInspector: (platform?: Platform) => Promise<void>
   backToDashboard: () => void
   retryRestore: () => Promise<void>
   refreshInspection: () => Promise<void>
@@ -102,6 +104,7 @@ export function InspectionSessionProvider({
   const [screen, setScreen] = useState<AppScreen>(initial.screen)
   const [sessionKind, setSessionKind] = useState<SessionKind>(initial.sessionKind)
   const [deviceId, setDeviceId] = useState(initial.deviceId)
+  const [platform, setPlatform] = useState<Platform>(initial.platform ?? 'android')
   const [session, setSession] = useState<InspectionSession | null>(null)
   const [inspection, setInspection] = useState<ElementInspectionResult | null>(null)
   const [selectedLocator, setSelectedLocator] = useState<LocatorCandidate | null>(null)
@@ -155,8 +158,10 @@ export function InspectionSessionProvider({
   ) => {
     setSession(s)
     setDeviceId(s.device_id)
+    if (s.platform) setPlatform(s.platform)
     persist({
       deviceId: s.device_id,
+      platform: s.platform,
       ...snapshotFromSession(s),
     })
 
@@ -180,7 +185,7 @@ export function InspectionSessionProvider({
 
   useLiveRefresh({
     deviceId: sessionKind === 'live' && session?.mode === 'live' ? deviceId : null,
-    platform: 'android',
+    platform,
     enabled: liveRefresh && !!session && sessionKind === 'live' && screen === 'inspector',
     interval: 2,
     onSessionUpdate: (s) => { void applySessionUpdate(s) },
@@ -194,6 +199,7 @@ export function InspectionSessionProvider({
       screen,
       sessionKind,
       deviceId,
+      platform,
       liveRefresh,
       packageName,
       activity,
@@ -205,7 +211,7 @@ export function InspectionSessionProvider({
       ...snapshotFromSession(session),
     })
   }, [
-    screen, sessionKind, deviceId, liveRefresh, packageName, activity,
+      screen, sessionKind, deviceId, platform, liveRefresh, packageName, activity,
     languageProfile, codeAction, inspectorSection, builderState, session, persist,
   ])
 
@@ -228,10 +234,12 @@ export function InspectionSessionProvider({
       const s = await restoreLiveSession({
         deviceId: devId,
         sessionKind: kind,
+        platform: loadPersistedState().platform ?? 'android',
         packageName: pkg || undefined,
       })
       setSession(s)
       setDeviceId(s.device_id)
+      setPlatform(s.platform)
       setSessionKind(kind)
       setScreen('inspector')
       if (kind === 'live') {
@@ -268,9 +276,10 @@ export function InspectionSessionProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const enterLiveInspector = useCallback(async (devId: string, pkg?: string) => {
+  const enterLiveInspector = useCallback(async (devId: string, plat: Platform, pkg?: string) => {
     setSessionKind('live')
     setDeviceId(devId)
+    setPlatform(plat)
     if (pkg) setPackageName(pkg)
     setConnecting(true)
     setInspection(null)
@@ -278,16 +287,18 @@ export function InspectionSessionProvider({
     setHighlightIds([])
     selectedElementIdRef.current = null
     try {
-      const s = await api.connect(devId, 'android', pkg)
+      const s = await api.connect(devId, plat, pkg)
       if (s.mode !== 'live') throw new Error('Server returned non-live session')
       if (s.device_id.startsWith('mock-')) throw new Error('Received mock device session during live connect')
       setSession(s)
+      setPlatform(s.platform)
       setLiveRefresh(true)
       setScreen('inspector')
       persist({
         screen: 'inspector',
         sessionKind: 'live',
         deviceId: devId,
+        platform: plat,
         liveRefresh: true,
         packageName: pkg || packageName,
         ...snapshotFromSession(s),
@@ -296,6 +307,7 @@ export function InspectionSessionProvider({
       addSessionHistory({
         kind: 'live',
         label: s.device_id,
+        platform: plat,
         deviceId: devId,
         packageName: pkg,
       })
@@ -374,12 +386,13 @@ export function InspectionSessionProvider({
     }], 0)
   }, [enterOfflinePackages])
 
-  const enterMockInspector = useCallback(async () => {
+  const enterMockInspector = useCallback(async (plat: Platform = 'android') => {
     setConnecting(true)
     try {
-      const s = await api.loadMockSession()
+      const s = await api.loadMockSession(plat)
       setSession(s)
       setDeviceId(s.device_id)
+      setPlatform(s.platform)
       setSessionKind('mock')
       setLiveRefresh(false)
       setInspection(null)
@@ -390,11 +403,12 @@ export function InspectionSessionProvider({
         screen: 'inspector',
         sessionKind: 'mock',
         deviceId: s.device_id,
+        platform: s.platform,
         liveRefresh: false,
         ...snapshotFromSession(s),
       })
-      onNotify('Sample project loaded', 'success')
-      addSessionHistory({ kind: 'mock', label: 'Sample Project' })
+      onNotify(`Sample project loaded (${s.platform})`, 'success')
+      addSessionHistory({ kind: 'mock', label: `Sample — ${s.platform}`, platform: s.platform })
     } finally {
       setConnecting(false)
     }
@@ -415,7 +429,7 @@ export function InspectionSessionProvider({
     if (!deviceId || !session || sessionKind !== 'live' || screen !== 'inspector') return
     setRefreshing(true)
     try {
-      const s = await api.refreshSessionWithRetry(deviceId, 'android', packageName || undefined)
+      const s = await api.refreshSessionWithRetry(deviceId, platform, packageName || undefined)
       await applySessionUpdate(s)
       onNotify(`Refreshed in ${s.last_refresh_ms}ms`, 'success')
     } catch (e) {
@@ -470,6 +484,7 @@ export function InspectionSessionProvider({
     screen,
     sessionKind,
     deviceId,
+    platform,
     session,
     inspection,
     selectedLocator,
@@ -511,7 +526,7 @@ export function InspectionSessionProvider({
     selectLocator,
     selectedElementIdRef,
   }), [
-    screen, sessionKind, deviceId, session, inspection, selectedLocator,
+    screen, sessionKind, deviceId, platform, session, inspection, selectedLocator,
     liveRefresh, refreshing, connecting, restoring, restoreError, packageName, activity,
     languageProfile, codeAction, inspectorSection, builderState, highlightIds,
     enterLiveInspector, enterOfflinePackages, enterOfflineInspector, switchOfflinePackage,

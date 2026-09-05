@@ -39,9 +39,11 @@ from inspectiq.domain.models import (
     ScriptFramework,
     ScriptLanguage,
 )
+from inspectiq.adapters.cloud_adapter import CloudAppiumAdapter
 from inspectiq.adb.manager import AdbError
 from inspectiq.services.device_service import DeviceService
 from inspectiq.services.inspection_service import InspectionService
+from inspectiq.services.platform_service import PlatformService
 from inspectiq.storage.database import StorageService
 
 USE_MOCK = os.environ.get("DROIDLENS_MOCK", os.environ.get("INSPECTIQ_MOCK", "")).lower() in ("1", "true", "yes")
@@ -54,7 +56,7 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="DroidLens API",
     description="Professional Android UI Inspector for uiautomator2 automation",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 _DESKTOP_CORS_ORIGINS = (
@@ -90,6 +92,7 @@ inspection = InspectionService()
 configure_recording_engine(inspection)
 app.include_router(recording_router)
 devices_svc = DeviceService()
+platform_svc = PlatformService(devices_svc)
 storage = StorageService()
 live_refresh = LiveRefreshManager(inspection)
 
@@ -206,14 +209,20 @@ async def adb_disconnect_wifi(host: Optional[str] = None):
 
 @app.get("/devices")
 async def list_devices(platform: Platform = Platform.ANDROID, refresh: bool = False):
-    if platform != Platform.ANDROID:
-        devices = await inspection.list_devices(platform)
-    elif refresh:
+    if platform == Platform.ANDROID and refresh:
         devices = await devices_svc.refresh_devices()
+        cloud = CloudAppiumAdapter()
+        if cloud.is_configured():
+            devices = [*devices, *(await cloud.list_devices())]
     else:
-        devices = await devices_svc.list_android_devices()
-    logger.info("List devices: count=%d refresh=%s", len(devices), refresh)
+        devices = await inspection.list_devices(platform)
+    logger.info("List devices platform=%s count=%d refresh=%s", platform.value, len(devices), refresh)
     return {"devices": devices, "mock_mode": USE_MOCK, "live_only": True}
+
+
+@app.get("/platform/status")
+async def platform_status():
+    return await platform_svc.get_status()
 
 
 @app.get("/devices/{device_id}/packages")
@@ -228,7 +237,7 @@ async def list_packages(device_id: str, q: str = ""):
 @app.post("/session/connect")
 async def connect_session(req: ConnectRequest, _user: AuthUser = Depends(require_live_access)):
     try:
-        await devices_svc.validate_device_for_live(req.device_id)
+        await devices_svc.validate_device_for_live(req.device_id, req.platform)
     except Exception as e:
         logger.warning("Live connect rejected: serial=%s reason=%s", req.device_id, e)
         raise HTTPException(status_code=503, detail=str(e))
@@ -253,7 +262,7 @@ async def connect_session(req: ConnectRequest, _user: AuthUser = Depends(require
 @app.post("/session/refresh")
 async def refresh_session(req: ConnectRequest, _user: AuthUser = Depends(require_live_access)):
     try:
-        await devices_svc.validate_device_for_live(req.device_id)
+        await devices_svc.validate_device_for_live(req.device_id, req.platform)
         session = await inspection.refresh_session(req.device_id, req.platform, req.package)
         logger.info("Live refresh complete: serial=%s ms=%s", req.device_id, session.last_refresh_ms)
         return session
@@ -403,7 +412,7 @@ async def custom_locator(device_id: str, request: CustomLocatorRequest, _user: A
 
 @app.post("/app/launch")
 async def launch_app(req: LaunchRequest):
-    adapter = inspection._adapter(req.platform)
+    adapter = inspection._adapter_for(req.platform, req.device_id)
     try:
         await adapter.launch_app(req.device_id, req.package, req.activity)
     except RuntimeError as e:
@@ -452,8 +461,8 @@ async def compare_locators(req: LocatorCompareRequest) -> LocatorComparisonResul
 
 
 @app.post("/session/mock")
-async def load_mock_session():
-    return await inspection.load_mock_session()
+async def load_mock_session(platform: Platform = Query(Platform.ANDROID)):
+    return await inspection.load_mock_session(platform)
 
 
 @app.post("/code/generate")

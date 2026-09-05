@@ -91,12 +91,15 @@ class MockAdapter(PlatformAdapter):
             draw = ImageDraw.Draw(img)
             draw.rectangle([0, 0, w, 80], fill=(33, 38, 45))
             draw.text((20, 28), f"DroidLens Mock — {self.platform.value.title()}", fill=(230, 237, 243))
-            draw.rectangle([120, 380, 960 if w > 400 else 370, 480 if w > 400 else 244], outline=(88, 166, 255), width=2)
-            draw.text((130, 400 if w > 400 else 210), "Username", fill=(139, 148, 158))
-            draw.rectangle([120, 520 if w > 400 else 260, 960 if w > 400 else 370, 620 if w > 400 else 304], outline=(88, 166, 255), width=2)
-            draw.text((130, 540 if w > 400 else 270), "Password", fill=(139, 148, 158))
-            draw.rectangle([120, 700 if w > 400 else 340, 960 if w > 400 else 370, 800 if w > 400 else 390], fill=(35, 134, 54))
-            draw.text((480 if w > 400 else 165, 730 if w > 400 else 355), "Login", fill=(255, 255, 255), anchor="mm")
+            pad = 20 if w <= 400 else 120
+            field_w = w - pad * 2
+            y0 = 200 if w <= 400 else 380
+            draw.rectangle([pad, y0, pad + field_w, y0 + 44], outline=(88, 166, 255), width=2)
+            draw.text((pad + 10, y0 + 12), "Username", fill=(139, 148, 158))
+            draw.rectangle([pad, y0 + 60, pad + field_w, y0 + 104], outline=(88, 166, 255), width=2)
+            draw.text((pad + 10, y0 + 72), "Password", fill=(139, 148, 158))
+            draw.rectangle([pad, y0 + 140, pad + field_w, y0 + 190], fill=(35, 134, 54))
+            draw.text((pad + field_w // 2, y0 + 162), "Login", fill=(255, 255, 255), anchor="mm")
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             return buf.getvalue()
@@ -116,8 +119,8 @@ class MockAdapter(PlatformAdapter):
 
     def parse_ui_dump(self, raw: str) -> ElementNode:
         if self.platform == Platform.IOS:
-            from inspectiq.adapters.ios_adapter import IOSAdapter
-            return IOSAdapter().parse_ui_dump(raw)
+            from inspectiq.engine.ios_parser import IOSXmlParser
+            return IOSXmlParser().parse(raw)
         if self.platform == Platform.HARMONYOS:
             from inspectiq.adapters.harmony_adapter import HarmonyAdapter
             return HarmonyAdapter().parse_ui_dump(raw)

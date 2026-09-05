@@ -1,4 +1,4 @@
-import type { InspectionSession } from '../types'
+import type { InspectionSession, Platform } from '../types'
 import type { InspectorSection } from '../components/InspectorPanel'
 import { DEFAULT_BUILDER, type BuilderState } from '../components/InspectorPanel'
 
@@ -11,6 +11,7 @@ export interface PersistedInspectionState {
   screen: AppScreen
   sessionKind: SessionKind
   deviceId: string
+  platform: Platform
   liveRefresh: boolean
   packageName: string
   activity: string
@@ -30,6 +31,7 @@ export function defaultPersistedState(): PersistedInspectionState {
     screen: 'dashboard',
     sessionKind: 'mock',
     deviceId: '',
+    platform: 'android',
     liveRefresh: false,
     packageName: '',
     activity: '',

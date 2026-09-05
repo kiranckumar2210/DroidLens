@@ -1,11 +1,14 @@
 /** Lightweight session history — live devices + offline files (paths only). */
 
+import type { Platform } from '../types'
+
 export type SessionHistoryKind = 'live' | 'offline' | 'mock'
 
 export interface SessionHistoryEntry {
   id: string
   kind: SessionHistoryKind
   label: string
+  platform?: Platform
   deviceId?: string
   packageName?: string
   xmlPath?: string
@@ -25,7 +28,7 @@ export function loadSessionHistory(): SessionHistoryEntry[] {
 }
 
 function entryKey(entry: Omit<SessionHistoryEntry, 'id' | 'openedAt'>): string {
-  if (entry.kind === 'live') return `live:${entry.deviceId}:${entry.packageName ?? ''}`
+  if (entry.kind === 'live') return `live:${entry.platform ?? 'android'}:${entry.deviceId}:${entry.packageName ?? ''}`
   if (entry.kind === 'offline') return `offline:${entry.xmlPath ?? entry.label}`
   return 'mock'
 }

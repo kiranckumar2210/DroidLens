@@ -11,7 +11,7 @@ import { usePremiumGate } from '../auth/usePremiumGate'
 import { loadRecentFiles, type RecentFileEntry } from '../offline/recentFiles'
 import { loadSessionHistory, type SessionHistoryEntry } from '../session/sessionHistory'
 import type { XmlPackagePair } from '../offline/xmlPackage'
-import type { AdbStatus, DeviceInfo } from '../types'
+import type { AdbStatus, DeviceInfo, Platform } from '../types'
 import BrandLogo from './BrandLogo'
 import ImportXmlPackageDialog from './ImportXmlPackageDialog'
 import XmlDiffDialog from './XmlDiffDialog'
@@ -27,9 +27,9 @@ export type InspectionEntry = 'live' | 'offline' | 'mock'
 interface Props {
   theme: ThemeMode
   onThemeChange?: (theme: ThemeMode) => void
-  onEnterLive: (deviceId: string, packageName?: string) => Promise<void>
+  onEnterLive: (deviceId: string, platform: Platform, packageName?: string) => Promise<void>
   onOpenXmlPackages: (pairs: XmlPackagePair[], startIndex?: number) => Promise<void>
-  onEnterMock: () => Promise<void>
+  onEnterMock: (platform?: Platform) => Promise<void>
   onNotify?: (message: string, kind?: 'info' | 'success' | 'warning' | 'error') => void
   onOpenAccount?: () => void
   onOpenSubscription?: () => void
@@ -47,6 +47,8 @@ export default function Dashboard({
   const subscriptionOn = config.subscription_enabled
   const { gateOpen, gateAccess, requestFeature, closeGate } = usePremiumGate()
   const [adb, setAdb] = useState<AdbStatus | null>(null)
+  const [platform, setPlatform] = useState<Platform>('android')
+  const [platformStatus, setPlatformStatus] = useState<Record<string, { available: boolean; device_count?: number }> | null>(null)
   const [devices, setDevices] = useState<DeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState('')
   const [packageName, setPackageName] = useState('')
@@ -67,19 +69,48 @@ export default function Dashboard({
   const trialText = trialBannerText(license, subscriptionOn)
   const statusBanner = dashboardStatusText(license, isLoggedIn, subscriptionOn)
 
+  const platformLabels: Record<Platform, string> = {
+    android: 'Android',
+    ios: 'iOS',
+    harmonyos: 'HarmonyOS',
+  }
+
+  const platformHint = () => {
+    if (platform === 'android') {
+      return adb?.installed ? 'Capture XML + screenshot via ADB.' : 'Install Android platform-tools (adb).'
+    }
+    if (platform === 'ios') {
+      const ios = platformStatus?.ios
+      if (ios?.available) return 'Simulator (simctl) or physical device with WebDriverAgent on :8100.'
+      return 'Requires macOS with Xcode (simctl) or WebDriverAgent for UI hierarchy.'
+    }
+    if (platform === 'harmonyos') {
+      return platformStatus?.harmonyos?.available
+        ? 'Capture via HDC uitest dumpLayout.'
+        : 'Install HarmonyOS HDC toolchain.'
+    }
+    return ''
+  }
+
   const refreshDevices = useCallback(async () => {
     try {
-      const [{ devices: list }, status] = await Promise.all([
-        api.listDevices(true),
-        api.adbStatus(),
+      const [{ devices: list }, status, platStatus] = await Promise.all([
+        api.listDevices(platform, platform === 'android'),
+        platform === 'android' ? api.adbStatus() : Promise.resolve(null),
+        api.platformStatus().catch(() => null),
       ])
       setDevices(list)
-      setAdb(status)
-      if (list.length && !deviceId) setDeviceId(list[0].id)
+      if (status) setAdb(status)
+      if (platStatus) setPlatformStatus(platStatus.platforms)
+      if (list.length && !list.some((d) => d.id === deviceId)) {
+        setDeviceId(list[0]!.id)
+      } else if (list.length && !deviceId) {
+        setDeviceId(list[0]!.id)
+      }
     } catch (e) {
       setError((e as Error).message)
     }
-  }, [deviceId])
+  }, [deviceId, platform])
 
   useEffect(() => { refreshDevices() }, [refreshDevices])
 
@@ -93,7 +124,7 @@ export default function Dashboard({
       setLoading('live')
       setError(null)
       try {
-        await onEnterLive(deviceId, packageName || undefined)
+        await onEnterLive(deviceId, platform, packageName || undefined)
       } catch (e) {
         setError((e as Error).message)
       } finally {
@@ -106,7 +137,7 @@ export default function Dashboard({
     setLoading('mock')
     setError(null)
     try {
-      await onEnterMock()
+      await onEnterMock(platform)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -170,7 +201,7 @@ export default function Dashboard({
         setLoading('live')
         setError(null)
         try {
-          await onEnterLive(entry.deviceId!, entry.packageName)
+          await onEnterLive(entry.deviceId!, entry.platform ?? 'android', entry.packageName)
           setSessionHistory(loadSessionHistory())
         } catch (e) {
           setError((e as Error).message)
@@ -253,7 +284,7 @@ export default function Dashboard({
           <BrandLogo size={64} />
           <h1>DroidLens</h1>
           <p className="brand-tagline">See. Inspect. Automate.</p>
-          <p>Modern UIAutomatorViewer-style Android UI inspection — live ADB or offline XML + PNG.</p>
+          <p>Multi-platform UI inspection — Android, iOS, HarmonyOS, or offline XML + PNG.</p>
         </section>
 
         {error && <div className="dashboard-error" role="alert">{error}</div>}
@@ -263,13 +294,38 @@ export default function Dashboard({
             {liveLocked && <Lock size={14} className="dl-card-lock" aria-hidden />}
             <div className="dl-card-icon live"><Monitor size={24} /></div>
             <h2>Connect Live Device</h2>
-            <p>Capture XML + screenshot from a connected Android device via ADB.</p>
+            <p>{platformHint() || 'Capture XML + screenshot from a connected device.'}</p>
             {expanded === 'live' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
-                {adb && (
+                <label className="field-label">Platform</label>
+                <div className="platform-picker" role="group" aria-label="Platform">
+                  {(['android', 'ios', 'harmonyos'] as Platform[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`platform-pill ${platform === p ? 'active' : ''}`}
+                      onClick={() => { setPlatform(p); setDeviceId('') }}
+                      disabled={liveLocked}
+                    >
+                      {platformLabels[p]}
+                    </button>
+                  ))}
+                </div>
+                {platform === 'android' && adb && (
                   <div className="adb-summary">
                     <span className={adb.installed ? 'ok' : 'err'}>ADB {adb.installed ? 'ready' : 'not found'}</span>
                     <span>{adb.device_count} device(s)</span>
+                    <button type="button" className="btn-icon copy-btn" onClick={refreshDevices} aria-label="Refresh devices">
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                )}
+                {platform !== 'android' && platformStatus && (
+                  <div className="adb-summary">
+                    <span className={platformStatus[platform]?.available ? 'ok' : 'err'}>
+                      {platformLabels[platform]} {platformStatus[platform]?.available ? 'ready' : 'unavailable'}
+                    </span>
+                    <span>{platformStatus[platform]?.device_count ?? 0} device(s)</span>
                     <button type="button" className="btn-icon copy-btn" onClick={refreshDevices} aria-label="Refresh devices">
                       <RefreshCw size={14} />
                     </button>
@@ -282,10 +338,16 @@ export default function Dashboard({
                     <option key={d.id} value={d.id}>{d.name} — {d.model || d.id}</option>
                   ))}
                 </select>
-                <label className="field-label">Package (optional)</label>
-                <input className="full-width" placeholder="com.example.app" value={packageName} onChange={(e) => setPackageName(e.target.value)} disabled={liveLocked} />
+                <label className="field-label">{platform === 'ios' ? 'Bundle ID (optional)' : 'Package (optional)'}</label>
+                <input
+                  className="full-width"
+                  placeholder={platform === 'ios' ? 'com.example.app' : 'com.example.app'}
+                  value={packageName}
+                  onChange={(e) => setPackageName(e.target.value)}
+                  disabled={liveLocked}
+                />
                 <button type="button" className="btn-primary card-action" onClick={handleLive} disabled={loading === 'live' || !deviceId}>
-                  {loading === 'live' ? 'Connecting…' : 'Start Live Inspection'}
+                  {loading === 'live' ? 'Connecting…' : `Start ${platformLabels[platform]} Inspection`}
                 </button>
               </div>
             )}
@@ -312,8 +374,21 @@ export default function Dashboard({
             <p>Explore DroidLens with bundled sample data — no device required.</p>
             {expanded === 'mock' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="btn-primary card-action" onClick={handleMock} disabled={loading === 'mock'}>
-                  {loading === 'mock' ? 'Loading…' : 'Load Sample Data'}
+                <label className="field-label">Sample platform</label>
+                <div className="platform-picker" role="group" aria-label="Mock platform">
+                  {(['android', 'ios', 'harmonyos'] as Platform[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`platform-pill ${platform === p ? 'active' : ''}`}
+                      onClick={() => setPlatform(p)}
+                    >
+                      {platformLabels[p]}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="btn-primary card-action" onClick={() => handleMock()} disabled={loading === 'mock'}>
+                  {loading === 'mock' ? 'Loading…' : `Load ${platformLabels[platform]} Sample`}
                 </button>
               </div>
             )}

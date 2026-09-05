@@ -256,7 +256,7 @@ function AppShell({
 
   const loadDevices = useCallback(async (refresh = false) => {
     try {
-      const { devices: list } = await api.listDevices(refresh)
+      const { devices: list } = await api.listDevices(sm.platform, refresh)
       setDevices(list)
       setAdb(await api.adbStatus())
     } catch (e) {
@@ -381,7 +381,11 @@ function AppShell({
     const devId = sm.deviceId || loadPersistedState().deviceId
     if (!devId) return
     try {
-      await withTimeout(sm.enterLiveInspector(devId, sm.packageName || undefined), 60000, 'Reconnect')
+      await withTimeout(
+        sm.enterLiveInspector(devId, sm.platform, sm.packageName || undefined),
+        60000,
+        'Reconnect',
+      )
       notify('Reconnected to device', 'success')
     } catch (e) {
       notify((e as Error).message, 'error')
@@ -872,12 +876,12 @@ function AppShell({
         onClose={() => setSaveOpen(false)}
         inspection={sm.inspection}
         primaryLocator={sm.selectedLocator}
-        platform="android"
+        platform={sm.platform}
         onSave={async (data) => {
           if (!sm.inspection || !sm.selectedLocator) return
           await api.saveElement({
             ...data,
-            platform: 'android',
+            platform: sm.platform,
             element: sm.inspection.element,
             primary_locator: sm.selectedLocator,
             all_locators: sm.inspection.locators,

@@ -85,10 +85,20 @@ export const api = {
       body: JSON.stringify({ host, port }),
     }),
 
-  listDevices: (refresh = false) =>
+  listDevices: (platform: Platform = 'android', refresh = false) =>
     request<{ devices: DeviceInfo[]; mock_mode: boolean }>(
-      `/devices?platform=android${refresh ? '&refresh=true' : ''}`
+      `/devices?platform=${platform}${refresh ? '&refresh=true' : ''}`
     ),
+
+  platformStatus: () =>
+    request<{
+      platforms: Record<string, {
+        available: boolean
+        device_count?: number
+        tool?: string
+        tools?: Record<string, boolean>
+      }>
+    }>('/platform/status'),
 
   listPackages: (deviceId: string, q = '') =>
     request<{ packages: string[] }>(`/devices/${deviceId}/packages?q=${encodeURIComponent(q)}`),
@@ -201,7 +211,11 @@ export const api = {
   getLocatorRepository: () =>
     request<{ elements: Array<Record<string, unknown>> }>('/storage/repository'),
 
-  loadMockSession: () => request<import('../types').InspectionSession>('/session/mock', { method: 'POST' }),
+  loadMockSession: (platform: Platform = 'android') =>
+    request<import('../types').InspectionSession>(
+      `/session/mock?platform=${platform}`,
+      { method: 'POST' },
+    ),
 
   getSession: (device_id: string) =>
     request<InspectionSession>(`/session/${encodeURIComponent(device_id)}`),

@@ -2,7 +2,7 @@
 
 import { withTimeout } from '../utils/withTimeout'
 import { api } from '../api/client'
-import type { InspectionSession } from '../types'
+import type { InspectionSession, Platform } from '../types'
 import type { SessionKind } from './storage'
 
 export type LiveSessionEvent =
@@ -29,6 +29,7 @@ export function liveSessionLog(event: LiveSessionEvent, detail?: Record<string, 
 export interface RestoreLiveSessionOptions {
   deviceId: string
   sessionKind: SessionKind
+  platform?: Platform
   packageName?: string
 }
 
@@ -39,8 +40,8 @@ export interface RestoreLiveSessionOptions {
 export async function restoreLiveSession(
   opts: RestoreLiveSessionOptions,
 ): Promise<InspectionSession> {
-  const { deviceId, sessionKind, packageName } = opts
-  liveSessionLog('session_restore_attempt', { deviceId, sessionKind })
+  const { deviceId, sessionKind, platform = 'android', packageName } = opts
+  liveSessionLog('session_restore_attempt', { deviceId, sessionKind, platform })
 
   try {
     let session = await withTimeout(api.getSession(deviceId), 15000, 'Load session')
@@ -48,7 +49,11 @@ export async function restoreLiveSession(
 
     if (sessionKind === 'live' && session.mode === 'live') {
       try {
-        session = await withTimeout(api.refreshSessionWithRetry(deviceId), 45000, 'Refresh session')
+        session = await withTimeout(
+          api.refreshSessionWithRetry(deviceId, platform),
+          45000,
+          'Refresh session',
+        )
         liveSessionLog('xml_refreshed', { deviceId, ms: session.last_refresh_ms })
         liveSessionLog('screenshot_refreshed', { deviceId })
       } catch (err) {
@@ -66,20 +71,24 @@ export async function restoreLiveSession(
       throw new Error('Offline session expired — use Open XML Package on the Dashboard')
     }
 
-    liveSessionLog('session_reconnect_attempt', { deviceId })
+    liveSessionLog('session_reconnect_attempt', { deviceId, platform })
     try {
-      await withTimeout(api.listDevices(true), 15000, 'List devices')
+      await withTimeout(api.listDevices(platform, true), 15000, 'List devices')
       liveSessionLog('device_connection_verified', { deviceId })
     } catch {
       /* device list optional */
     }
 
     await withTimeout(
-      api.connect(deviceId, 'android', packageName || undefined),
+      api.connect(deviceId, platform, packageName || undefined),
       45000,
       'Reconnect device',
     )
-    const session = await withTimeout(api.refreshSessionWithRetry(deviceId), 45000, 'Refresh after reconnect')
+    const session = await withTimeout(
+      api.refreshSessionWithRetry(deviceId, platform),
+      45000,
+      'Refresh after reconnect',
+    )
     liveSessionLog('session_reconnected', { deviceId, ms: session.last_refresh_ms })
     return session
   }

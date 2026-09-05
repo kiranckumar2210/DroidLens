@@ -1,37 +1,70 @@
-"""iOS platform adapter (XCTest / accessibility hierarchy)."""
+"""iOS platform adapter — Simulator (simctl + WDA) and physical devices."""
 
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 import uuid
-import xml.etree.ElementTree as ET
 from typing import Optional
 
 from inspectiq.adapters.base import PlatformAdapter
-from inspectiq.domain.models import Bounds, DeviceInfo, ElementNode, Platform
+from inspectiq.adapters.wda_client import WDAClient
+from inspectiq.domain.models import DeviceInfo, ElementNode, Platform
+from inspectiq.engine.ios_parser import IOSXmlParser
+
+_SIMULATOR_UDID_RE = re.compile(
+    r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+)
 
 
 class IOSAdapter(PlatformAdapter):
-    """iOS adapter using idevice tools / simctl when available."""
+    """iOS adapter using simctl, WebDriverAgent, and idevice tools when available."""
 
     platform = Platform.IOS
 
-    async def _run(self, *args: str) -> tuple[int, str, str]:
-        proc = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+    def __init__(self):
+        self._parser = IOSXmlParser()
+        self._wda = WDAClient()
+        self._screen_sizes: dict[str, tuple[int, int]] = {}
+
+    @staticmethod
+    def is_simulator(device_id: str) -> bool:
+        return bool(_SIMULATOR_UDID_RE.match(device_id))
+
+    async def _run_text(self, *args: str) -> tuple[int, str, str]:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            return 127, "", "command not found"
         stdout, stderr = await proc.communicate()
-        return proc.returncode or 0, stdout.decode("utf-8", errors="replace"), stderr.decode("utf-8", errors="replace")
+        return (
+            proc.returncode or 0,
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
+        )
+
+    async def _run_bytes(self, *args: str) -> tuple[int, bytes, str]:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            return 127, b"", "command not found"
+        stdout, stderr = await proc.communicate()
+        return proc.returncode or 0, stdout, stderr.decode("utf-8", errors="replace")
 
     async def list_devices(self) -> list[DeviceInfo]:
         devices: list[DeviceInfo] = []
 
-        code, out, _ = await self._run("xcrun", "simctl", "list", "devices", "available", "-j")
+        code, out, _ = await self._run_text("xcrun", "simctl", "list", "devices", "available", "-j")
         if code == 0:
-            import json
-
             try:
                 data = json.loads(out)
                 for runtime, devs in data.get("devices", {}).items():
@@ -49,80 +82,115 @@ class IOSAdapter(PlatformAdapter):
             except json.JSONDecodeError:
                 pass
 
-        code, out, _ = await self._run("idevice_id", "-l")
+        code, out, _ = await self._run_text("idevice_id", "-l")
         if code == 0:
             for udid in out.strip().splitlines():
-                if udid.strip():
+                udid = udid.strip()
+                if udid:
                     devices.append(
                         DeviceInfo(
-                            id=udid.strip(),
+                            id=udid,
                             platform=Platform.IOS,
-                            name=f"iOS Device ({udid[:8]}...)",
+                            name=f"iOS Device ({udid[:8]}…)",
                         )
                     )
         return devices
 
     async def connect(self, device_id: str) -> None:
-        pass
+        if self.is_simulator(device_id):
+            code, out, _ = await self._run_text("xcrun", "simctl", "list", "devices", "booted", "-j")
+            booted = set()
+            if code == 0:
+                try:
+                    data = json.loads(out)
+                    for devs in data.get("devices", {}).values():
+                        for d in devs:
+                            if d.get("state") == "Booted":
+                                booted.add(d["udid"])
+                except json.JSONDecodeError:
+                    pass
+            if device_id not in booted:
+                boot_code, _, boot_err = await self._run_text("xcrun", "simctl", "boot", device_id)
+                if boot_code != 0 and "Unable to boot device in current state: Booted" not in boot_err:
+                    raise ConnectionError(f"Cannot boot iOS Simulator: {boot_err}")
+            return
+
+        code, _, err = await self._run_text("ideviceinfo", "-u", device_id, "-k", "DeviceName")
+        if code != 0:
+            raise ConnectionError(
+                f"Cannot reach iOS device '{device_id}'. Install libimobiledevice or use Simulator. {err}"
+            )
 
     async def dump_ui(self, device_id: str) -> str:
-        code, out, err = await self._run("idevice_ui", "-u", device_id, "dump")
+        if await self._wda.is_available():
+            try:
+                return await self._wda.get_source()
+            except Exception:
+                pass
+
+        if self.is_simulator(device_id):
+            raise RuntimeError(
+                "iOS Simulator UI dump requires WebDriverAgent. "
+                "Start WDA (e.g. Appium or xcodebuild test) and set DROIDLENS_WDA_URL if not on :8100."
+            )
+
+        code, out, err = await self._run_text("idevice_ui", "-u", device_id, "dump")
         if code == 0 and out.strip():
             return out
         raise RuntimeError(
-            "iOS UI dump requires idevice_ui or WebDriverAgent. "
-            f"Use mock mode for development. Error: {err}"
+            "iOS UI dump requires WebDriverAgent or idevice_ui. "
+            f"Error: {err or 'no output'}"
         )
 
     async def screenshot(self, device_id: str) -> bytes:
-        code, out, err = await self._run("xcrun", "simctl", "io", device_id, "screenshot", "-")
-        if code == 0 and out:
-            return out.encode("latin-1") if isinstance(out, str) else out
-        raise RuntimeError(f"iOS screenshot failed: {err}")
+        if await self._wda.is_available():
+            try:
+                return await self._wda.get_screenshot()
+            except Exception:
+                pass
+
+        if self.is_simulator(device_id):
+            code, data, err = await self._run_bytes(
+                "xcrun", "simctl", "io", device_id, "screenshot", "-"
+            )
+            if code == 0 and data:
+                return data
+            raise RuntimeError(f"iOS Simulator screenshot failed: {err}")
+
+        remote = f"/tmp/droidlens_{uuid.uuid4().hex[:8]}.png"
+        code, _, err = await self._run_text("idevicescreenshot", "-u", device_id, remote)
+        if code != 0:
+            raise RuntimeError(f"iOS device screenshot failed: {err}")
+        try:
+            return open(remote, "rb").read()
+        finally:
+            try:
+                import os
+                os.unlink(remote)
+            except OSError:
+                pass
 
     async def launch_app(self, device_id: str, package: str, activity: Optional[str] = None) -> None:
-        await self._run("xcrun", "simctl", "launch", device_id, package)
+        if self.is_simulator(device_id):
+            await self._run_text("xcrun", "simctl", "launch", device_id, package)
+            return
+        raise RuntimeError("Launch app on physical iOS requires WebDriverAgent / Appium session")
 
     async def get_screen_size(self, device_id: str) -> tuple[int, int]:
+        cached = self._screen_sizes.get(device_id)
+        if cached:
+            return cached
+
+        if self.is_simulator(device_id):
+            code, out, _ = await self._run_text("xcrun", "simctl", "io", device_id, "info")
+            if code == 0:
+                match = re.search(r"Bounds:\s*\{\{(\d+),\s*(\d+)\},\s*\{(\d+),\s*(\d+)\}\}", out)
+                if match:
+                    w, h = int(match.group(3)), int(match.group(4))
+                    self._screen_sizes[device_id] = (w, h)
+                    return w, h
+
         return 390, 844
 
     def parse_ui_dump(self, raw: str) -> ElementNode:
-        root_el = ET.fromstring(raw)
-
-        def parse_node(el: ET.Element, parent_id: Optional[str] = None) -> ElementNode:
-            node_id = str(uuid.uuid4())
-            attrs = el.attrib
-
-            x = int(float(attrs.get("x", 0)))
-            y = int(float(attrs.get("y", 0)))
-            w = int(float(attrs.get("width", 0)))
-            h = int(float(attrs.get("height", 0)))
-            bounds = Bounds(x1=x, y1=y, x2=x + w, y2=y + h) if w and h else None
-
-            label = attrs.get("label") or None
-            name = attrs.get("name") or attrs.get("identifier") or None
-            value = attrs.get("value") or None
-            type_name = el.tag if el.tag.startswith("XCUI") else attrs.get("type", el.tag)
-
-            node = ElementNode(
-                id=node_id,
-                platform=Platform.IOS,
-                class_name=type_name or "",
-                type_name=type_name,
-                label=label,
-                name=name,
-                value=value,
-                text=label or value,
-                accessibility_id=name,
-                bounds=bounds,
-                enabled=attrs.get("enabled", "true").lower() == "true",
-                visible=attrs.get("visible", "true").lower() == "true",
-                clickable=attrs.get("accessible", "false").lower() == "true",
-                raw_attributes=dict(attrs),
-                parent_id=parent_id,
-            )
-            for child_el in el:
-                node.children.append(parse_node(child_el, node_id))
-            return node
-
-        return parse_node(root_el)
+        return self._parser.parse(raw)

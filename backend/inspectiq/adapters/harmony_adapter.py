@@ -19,11 +19,14 @@ class HarmonyAdapter(PlatformAdapter):
         if device_id:
             cmd.extend(["-t", device_id])
         cmd.extend(args)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            return 127, "", "hdc not found"
         stdout, stderr = await proc.communicate()
         return proc.returncode or 0, stdout.decode("utf-8", errors="replace"), stderr.decode("utf-8", errors="replace")
 
