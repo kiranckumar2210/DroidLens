@@ -3474,3 +3474,113 @@
     max-height: 160px;
   }
 }
+
+/* v1.1 — locator export, favorites, session history, package notes */
+.engine-tabs-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.engine-tabs-row .engine-tabs {
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.engine-export-btn {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.favorite-btn.active {
+  color: var(--accent, #f59e0b);
+}
+
+.locator-export-modal h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-scope-tabs,
+.export-format-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.export-scope-tabs button,
+.export-format-tabs button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.export-scope-tabs button.active,
+.export-format-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.export-scope-tabs button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.session-history-list .session-kind-badge {
+  display: inline-block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-right: 6px;
+  background: var(--surface-3);
+  color: var(--text-hint);
+}
+
+.session-kind-badge.live { color: #22c55e; }
+.session-kind-badge.offline,
+.session-kind-badge.file { color: #60a5fa; }
+.session-kind-badge.mock { color: #a78bfa; }
+
+.offline-package-notes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.offline-package-notes label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-hint);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.offline-package-notes textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.offline-screen-nav:has(.offline-package-notes) {
+  min-width: 160px;
+}

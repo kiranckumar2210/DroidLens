@@ -198,6 +198,9 @@ export const api = {
 
   listProjects: () => request<{ projects: unknown[] }>('/storage/projects'),
 
+  getLocatorRepository: () =>
+    request<{ elements: Array<Record<string, unknown>> }>('/storage/repository'),
+
   loadMockSession: () => request<import('../types').InspectionSession>('/session/mock', { method: 'POST' }),
 
   getSession: (device_id: string) =>

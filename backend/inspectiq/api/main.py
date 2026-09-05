@@ -429,6 +429,27 @@ async def list_projects():
     return {"projects": storage.list_projects()}
 
 
+@app.get("/storage/repository/export")
+async def export_locator_repository(
+    format: str = Query("json", alias="format"),
+    _user: AuthUser = Depends(require_premium),
+):
+    from inspectiq.storage.export_formats import format_repository
+
+    rows = storage.export_repository()
+    content, media_type, filename = format_repository(rows, format)
+    return Response(
+        content=content.encode("utf-8"),
+        media_type=f"{media_type}; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/storage/repository")
+async def get_locator_repository(_user: AuthUser = Depends(require_premium)):
+    return {"elements": storage.export_repository()}
+
+
 @app.websocket("/ws/live")
 async def websocket_live(websocket: WebSocket):
     await live_refresh.handle(websocket)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Clock, Database, Download, FileUp, Info, Lock, Monitor, RefreshCw, Settings, User,
+  Clock, Database, FileUp, Info, Lock, Monitor, RefreshCw, Settings, User,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { isElectron } from '../api/baseUrl'
@@ -9,6 +9,7 @@ import { useSystemConfig } from '../auth/SystemConfigContext'
 import { dashboardStatusText, trialBannerText } from '../auth/features'
 import { usePremiumGate } from '../auth/usePremiumGate'
 import { loadRecentFiles, type RecentFileEntry } from '../offline/recentFiles'
+import { loadSessionHistory, type SessionHistoryEntry } from '../session/sessionHistory'
 import type { XmlPackagePair } from '../offline/xmlPackage'
 import type { AdbStatus, DeviceInfo } from '../types'
 import BrandLogo from './BrandLogo'
@@ -49,6 +50,7 @@ export default function Dashboard({
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<InspectionEntry | 'recent' | null>(null)
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(loadRecentFiles)
+  const [sessionHistory, setSessionHistory] = useState<SessionHistoryEntry[]>(loadSessionHistory)
   const [importOpen, setImportOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
 
@@ -110,6 +112,7 @@ export default function Dashboard({
     try {
       await onOpenXmlPackages(pairs, startIndex)
       setRecentFiles(loadRecentFiles())
+      setSessionHistory(loadSessionHistory())
     } catch (e) {
       setError((e as Error).message)
       throw e
@@ -151,6 +154,43 @@ export default function Dashboard({
       }
       await handleOpenPackages(pairs, 0)
     })
+  }
+
+  const openHistoryEntry = (entry: SessionHistoryEntry) => {
+    if (entry.kind === 'live' && entry.deviceId) {
+      requestFeature('live_inspection', async () => {
+        setLoading('live')
+        setError(null)
+        try {
+          await onEnterLive(entry.deviceId!, entry.packageName)
+          setSessionHistory(loadSessionHistory())
+        } catch (e) {
+          setError((e as Error).message)
+        } finally {
+          setLoading(null)
+        }
+      })
+      return
+    }
+    if (entry.kind === 'offline' && entry.xmlPath && isElectron()) {
+      requestFeature('xml_upload', async () => {
+        setLoading('offline')
+        try {
+          await handleOpenPackages([{
+            id: entry.label,
+            label: entry.label,
+            xmlPath: entry.xmlPath,
+            screenshotPath: entry.screenshotPath,
+          }])
+        } catch { /* error set in handleOpenPackages */ }
+      })
+      return
+    }
+    if (entry.kind === 'mock') {
+      void handleMock()
+      return
+    }
+    openImport()
   }
 
   const toggle = (id: typeof expanded) => setExpanded(expanded === id ? null : id)
@@ -273,18 +313,29 @@ export default function Dashboard({
 
           <article className={`dl-card ${expanded === 'recent' ? 'expanded' : ''}`} onClick={() => toggle('recent')}>
             <div className="dl-card-icon recent"><Clock size={24} /></div>
-            <h2>Recent Files</h2>
-            <p>Quick access to recently opened XML files (paths only — no copies).</p>
+            <h2>Recent Sessions</h2>
+            <p>Re-open live devices, offline XML packages, or sample data — paths only, no copies.</p>
             {expanded === 'recent' && (
               <div className="dl-card-body" onClick={(e) => e.stopPropagation()}>
-                {recentFiles.length === 0 ? (
-                  <p className="upload-hint">No recent files yet.</p>
+                {sessionHistory.length === 0 && recentFiles.length === 0 ? (
+                  <p className="upload-hint">No recent sessions yet.</p>
                 ) : (
-                  <ul className="recent-files-list">
-                    {recentFiles.map((r) => (
-                      <li key={`${r.xmlPath ?? r.xmlName}-${r.openedAt}`}>
+                  <ul className="recent-files-list session-history-list">
+                    {sessionHistory.map((h) => (
+                      <li key={`${h.id}-${h.openedAt}`}>
+                        <button type="button" className="recent-file-btn" onClick={() => openHistoryEntry(h)}>
+                          <span className={`session-kind-badge ${h.kind}`}>{h.kind}</span>
+                          {h.label}
+                        </button>
+                        <span className="recent-file-time">{new Date(h.openedAt).toLocaleString()}</span>
+                      </li>
+                    ))}
+                    {recentFiles
+                      .filter((r) => !sessionHistory.some((h) => h.xmlPath && h.xmlPath === r.xmlPath))
+                      .map((r) => (
+                      <li key={`file-${r.xmlPath ?? r.xmlName}-${r.openedAt}`}>
                         <button type="button" className="recent-file-btn" onClick={() => openRecentFile(r)}>
-                          <Download size={12} aria-hidden />
+                          <span className="session-kind-badge offline">file</span>
                           {r.xmlName}
                         </button>
                         <span className="recent-file-time">{new Date(r.openedAt).toLocaleString()}</span>

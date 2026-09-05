@@ -12,6 +12,7 @@ export interface ExportPackageInput {
   packageName?: string
   deviceId?: string
   mode?: string
+  notes?: string
 }
 
 function downloadBlob(blob: Blob, filename: string): void {
@@ -34,6 +35,7 @@ function exportViaBrowser(input: ExportPackageInput, baseName: string): void {
     packageName: input.packageName,
     deviceId: input.deviceId,
     mode: input.mode,
+    notes: input.notes,
   })
 
   downloadBlob(new Blob([input.xml], { type: 'application/xml' }), `${baseName}.xml`)
@@ -57,6 +59,7 @@ export async function exportXmlPackage(input: ExportPackageInput): Promise<strin
     packageName: input.packageName,
     deviceId: input.deviceId,
     mode: input.mode,
+    notes: input.notes,
   })
 
   const bridge = window.droidlens ?? window.inspectiq

@@ -27,6 +27,7 @@ import {
 } from './storage'
 import { loadXmlPackagePair } from '../offline/loadPackage'
 import { addRecentFile } from '../offline/recentFiles'
+import { addSessionHistory } from './sessionHistory'
 import type { XmlPackagePair } from '../offline/xmlPackage'
 import { liveSessionLog, restoreLiveSession } from './liveSessionManager'
 
@@ -292,6 +293,12 @@ export function InspectionSessionProvider({
         ...snapshotFromSession(s),
       })
       onNotify(`Connected to ${s.device_id} (${s.last_refresh_ms}ms)`, 'success')
+      addSessionHistory({
+        kind: 'live',
+        label: s.device_id,
+        deviceId: devId,
+        packageName: pkg,
+      })
     } catch (e) {
       onNotify(`Live connect failed: ${(e as Error).message}`, 'error')
       throw e
@@ -319,6 +326,12 @@ export function InspectionSessionProvider({
     })
     addRecentFile({
       xmlName: pair.label + '.xml',
+      xmlPath: pair.xmlPath,
+      screenshotPath: pair.screenshotPath,
+    })
+    addSessionHistory({
+      kind: 'offline',
+      label: pair.label,
       xmlPath: pair.xmlPath,
       screenshotPath: pair.screenshotPath,
     })
@@ -381,6 +394,7 @@ export function InspectionSessionProvider({
         ...snapshotFromSession(s),
       })
       onNotify('Sample project loaded', 'success')
+      addSessionHistory({ kind: 'mock', label: 'Sample Project' })
     } finally {
       setConnecting(false)
     }

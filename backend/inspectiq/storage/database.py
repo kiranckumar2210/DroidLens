@@ -218,3 +218,46 @@ class StorageService:
                 "screenshot_path": screenshot_path,
                 "xml_path": xml_path,
             }
+
+    def export_repository(self) -> list[dict]:
+        """Full locator repository for JSON / CSV / Markdown export."""
+        with self._session() as session:
+            rows: list[dict] = []
+            for el in session.query(SavedElementORM).order_by(SavedElementORM.captured_at.desc()).all():
+                screen = el.screen
+                if not screen:
+                    continue
+                feature = screen.feature
+                project = feature.project if feature else None
+                locators = []
+                primary = None
+                for loc in el.locators:
+                    entry = {
+                        "locator_type": loc.locator_type,
+                        "value": loc.locator_value,
+                        "stability": loc.stability_score,
+                        "uniqueness": loc.uniqueness_score,
+                        "maintainability": loc.maintainability_score,
+                        "overall": loc.overall_score,
+                        "recommended": bool(loc.recommended),
+                        "is_primary": bool(loc.is_primary),
+                        "reason": loc.reason or "",
+                    }
+                    locators.append(entry)
+                    if loc.is_primary:
+                        primary = entry
+                if not primary and locators:
+                    primary = locators[0]
+                rows.append({
+                    "project": project.name if project else "",
+                    "feature": feature.name if feature else "",
+                    "screen": screen.name,
+                    "platform": screen.platform,
+                    "element_name": el.name,
+                    "class_name": el.class_name or "",
+                    "bounds": el.bounds or "",
+                    "captured_at": el.captured_at.isoformat() if el.captured_at else None,
+                    "primary_locator": primary,
+                    "locators": locators,
+                })
+            return rows

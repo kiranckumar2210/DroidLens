@@ -45,6 +45,8 @@ interface Props {
   premiumLocked?: boolean
   elementName?: string
   packageName?: string
+  screenName?: string
+  onExportLocators?: () => void
 }
 
 const DEFAULT_BUILDER: BuilderState = {
@@ -93,6 +95,8 @@ export default function InspectorPanel({
   premiumLocked = false,
   elementName,
   packageName,
+  screenName,
+  onExportLocators,
 }: Props) {
   const debounceRef = useRef<number | null>(null)
   const scrollPosRef = useRef(0)
@@ -205,6 +209,8 @@ export default function InspectorPanel({
           theme={theme}
           elementName={elementName}
           packageName={packageName}
+          screenName={screenName}
+          onExport={onExportLocators}
         />
       </ExpandTile>
 

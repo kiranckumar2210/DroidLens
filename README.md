@@ -324,8 +324,9 @@ cd backend && DROIDLENS_MOCK=true PYTHONPATH=. python3 -m pytest -v
 
 | Version | Focus |
 |---------|-------|
-| **v1.0** *(current)* | Android production — live inspect, locator engine, recording studio, auth, admin |
-| **v1.1** | Locator export (JSON/CSV/Markdown), session restore, favorites |
+| **v1.0** | Android production — live inspect, locator engine, recording studio, auth, admin |
+| **v1.1** *(current)* | Locator export (JSON/CSV/MD), favorites, session history, package notes, keyboard shortcuts |
+| **v1.2** | XML diff, Page Object export from recorder, locator health scan |
 | **v2.0** | iOS adapter, HarmonyOS, cloud device farm integration |
 
 Full plan: [`docs/roadmap.md`](docs/roadmap.md)

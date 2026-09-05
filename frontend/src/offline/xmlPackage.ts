@@ -62,6 +62,7 @@ export function buildExportMetadata(opts: {
   packageName?: string
   deviceId?: string
   mode?: string
+  notes?: string
 }) {
   return {
     format: 'droidlens-xml-package',
@@ -70,6 +71,7 @@ export function buildExportMetadata(opts: {
     captureTimestamp: new Date().toISOString(),
     xmlFile: `${opts.baseName}.xml`,
     screenshotFile: `${opts.baseName}.png`,
+    notes: opts.notes?.trim() || null,
     screenWidth: opts.screenWidth ?? 0,
     screenHeight: opts.screenHeight ?? 0,
     screenshotWidth: opts.screenshotWidth ?? 0,

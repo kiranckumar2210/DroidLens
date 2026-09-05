@@ -156,3 +156,11 @@ export const RELEASE_NOTES_V1 = [
   'Guest, trial, and lifetime licensing with mock payment gateway',
   'Dark & light themes with responsive dashboard',
 ]
+
+export const RELEASE_NOTES_V11 = [
+  'Locator export — JSON, CSV, and Markdown for current element or full repository',
+  'Favorite locators — star and reuse locators across sessions',
+  'Recent Sessions — restore live devices, offline packages, or sample data',
+  'Package notes — annotate offline XML screens; included in metadata export',
+  'Keyboard shortcuts — F5 refresh, Ctrl+F search, Ctrl+Shift+E export, Ctrl+L live refresh toggle',
+]

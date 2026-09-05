@@ -23,6 +23,7 @@ export function getWsBase(): string {
   if (explicit) return explicit.replace(/\/$/, '')
   const fromEnv = import.meta.env.VITE_WS_BASE as string | undefined
   if (fromEnv) return fromEnv.replace(/\/$/, '')
+  if (import.meta.env.DEV) return 'ws://127.0.0.1:8765'
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${window.location.host}`
 }

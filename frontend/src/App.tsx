@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CircleDot, Code2, Download, FileUp, Info, Play, Radio, RefreshCw, Save, Search,
 } from 'lucide-react'
@@ -16,6 +16,7 @@ import DevicePanel from './components/DevicePanel'
 import ElementTree from './components/ElementTree'
 import ImportXmlPackageDialog from './components/ImportXmlPackageDialog'
 import InspectorPanel from './components/InspectorPanel'
+import LocatorExportModal from './components/LocatorExportModal'
 import SaveModal from './components/SaveModal'
 import OfflineScreenNav from './components/OfflineScreenNav'
 import ScreenshotPanel from './components/ScreenshotPanel'
@@ -35,7 +36,9 @@ import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useRecording } from './recording/useRecording'
 import { liveSessionLog } from './session/liveSessionManager'
 import { exportXmlPackage } from './offline/exportPackage'
+import { loadPackageNote } from './offline/packageNotes'
 import { resetApplicationState } from './session/resetState'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { loadNavState, saveAuthOverlay, saveNavState, type AuthOverlay, type CheckoutStep } from './auth/navigationStorage'
 import { loadPersistedState, savePersistedState } from './session/storage'
 import { withTimeout } from './utils/withTimeout'
@@ -163,7 +166,9 @@ function AppShell({
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
   const [recorderOpen, setRecorderOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [locatorExportOpen, setLocatorExportOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const setRecordingModeOpen = useCallback((open: boolean) => {
     setRecorderOpen(open)
@@ -277,6 +282,8 @@ function AppShell({
         await sm.applySessionUpdate(session, { preserveSelection: true })
       }
       const baseName = sm.currentPackageLabel || sm.packageName?.split('.').pop() || 'CurrentScreen'
+      const activePair = sm.offlinePackages[sm.activePackageIndex]
+      const notes = activePair ? loadPackageNote(activePair) : undefined
       const xml = session.raw_xml!
       const screenshotBase64 = session.screenshot_base64!
       const out = await exportXmlPackage({
@@ -290,12 +297,25 @@ function AppShell({
         packageName: sm.packageName || session.package || undefined,
         deviceId: session.device_id,
         mode: sm.sessionKind,
+        notes,
       })
       notify(`XML package exported: ${out}`, 'success')
     } catch (e) {
       notify((e as Error).message, 'error')
     }
   }, [sm, notify])
+
+  useKeyboardShortcuts({
+    enabled: sm.screen === 'inspector' && !recorderOpen,
+    onRefresh: () => {
+      if (sm.sessionKind === 'live' && sm.deviceId) void sm.refreshInspection()
+    },
+    onFocusSearch: () => searchInputRef.current?.focus(),
+    onExport: () => requestFeature('session_save', () => setLocatorExportOpen(true)),
+    onToggleLiveRefresh: () => {
+      if (sm.sessionKind === 'live') sm.setLiveRefresh(!sm.liveRefresh)
+    },
+  })
 
   const handleOpenXmlPackages = useCallback(async (pairs: Parameters<typeof sm.enterOfflinePackages>[0], startIndex = 0) => {
     await sm.enterOfflinePackages(pairs, startIndex)
@@ -590,7 +610,7 @@ function AppShell({
             <option value="resource-id">ID</option>
             <option value="class">Class</option>
           </select>
-          <input placeholder="Filter hierarchy…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} aria-label="Search hierarchy" />
+          <input ref={searchInputRef} placeholder="Filter hierarchy… (Ctrl+F)" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} aria-label="Search hierarchy" />
         </div>
       </header>
 
@@ -772,6 +792,8 @@ function AppShell({
             premiumLocked={!hasPremium}
             elementName={elementName()}
             packageName={sm.packageName}
+            screenName={sm.currentPackageLabel || sm.packageName || undefined}
+            onExportLocators={() => requestFeature('session_save', () => setLocatorExportOpen(true))}
           />
         </SplitPane>
       </div>
@@ -859,6 +881,16 @@ function AppShell({
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onOpen={handleOpenXmlPackages}
+      />
+
+      <LocatorExportModal
+        open={locatorExportOpen}
+        onClose={() => setLocatorExportOpen(false)}
+        inspection={sm.inspection}
+        screenName={sm.currentPackageLabel || sm.packageName || undefined}
+        packageName={sm.packageName || sm.session?.package || undefined}
+        elementName={elementName()}
+        onNotify={notify}
       />
     </div>
   )

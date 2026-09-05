@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertCircle, Check, CheckCircle, ChevronDown, ChevronRight, Copy,
+  AlertCircle, Check, CheckCircle, ChevronDown, ChevronRight, Copy, Download,
   GitCompare, Lightbulb, Search, Star,
 } from 'lucide-react'
+import {
+  isFavorite as checkFavorite,
+  loadFavorites,
+  removeFavorite,
+  toggleFavorite,
+  type FavoriteLocator,
+} from '../locators/favorites'
 import { api } from '../api/client'
 import type {
   ElementInspectionResult,
@@ -12,7 +19,7 @@ import type {
 } from '../types'
 import MonacoLocatorEditor, { type LocatorEditorLanguage } from './MonacoLocatorEditor'
 
-type EngineTab = 'summary' | 'code' | 'reliability' | 'compare'
+type EngineTab = 'summary' | 'code' | 'reliability' | 'compare' | 'favorites'
 
 const CODE_PROFILES: { id: string; label: string; monaco: LocatorEditorLanguage }[] = [
   { id: 'java_appium', label: 'Java', monaco: 'java' },
@@ -33,6 +40,8 @@ interface Props {
   theme: 'dark' | 'light'
   elementName?: string
   packageName?: string
+  screenName?: string
+  onExport?: () => void
 }
 
 function badgeClass(badge?: string | null) {
@@ -55,6 +64,8 @@ function LocatorRow({
   onSelect,
   onValidate,
   onCopy,
+  onFavorite,
+  favorited,
   validating,
   validation,
   expanded,
@@ -65,6 +76,8 @@ function LocatorRow({
   onSelect: () => void
   onValidate: () => void
   onCopy: () => void
+  onFavorite: () => void
+  favorited: boolean
   validating: boolean
   validation?: { match_count: number; execution_ms?: number; warning?: string | null } | null
   expanded: boolean
@@ -107,6 +120,9 @@ function LocatorRow({
             </div>
           )}
           <div className="locator-actions">
+            <button type="button" className={`copy-btn favorite-btn ${favorited ? 'active' : ''}`} onClick={onFavorite} title="Favorite">
+              <Star size={12} fill={favorited ? 'currentColor' : 'none'} />
+            </button>
             <button type="button" className="copy-btn" onClick={onCopy}><Copy size={12} /> Copy</button>
             <button type="button" className="copy-btn" onClick={onValidate} disabled={validating}>
               {validating ? '…' : 'Validate'}
@@ -128,8 +144,12 @@ export default function LocatorEnginePanel({
   theme,
   elementName = 'element',
   packageName = 'com.example.app',
+  screenName,
+  onExport,
 }: Props) {
   const [tab, setTab] = useState<EngineTab>('summary')
+  const [favorites, setFavorites] = useState<FavoriteLocator[]>(() => loadFavorites())
+  const [favoriteVersion, setFavoriteVersion] = useState(0)
   const [codeProfile, setCodeProfile] = useState('python_appium')
   const [generatedCode, setGeneratedCode] = useState('')
   const [codeLoading, setCodeLoading] = useState(false)
@@ -213,11 +233,27 @@ export default function LocatorEnginePanel({
     window.setTimeout(() => setCopied(false), 1500)
   }
 
+  const refreshFavorites = () => {
+    setFavorites(loadFavorites())
+    setFavoriteVersion((v) => v + 1)
+  }
+
+  const handleFavorite = (loc: LocatorCandidate) => {
+    toggleFavorite(loc, {
+      elementLabel: elementName,
+      screenLabel: screenName,
+      packageName,
+    })
+    refreshFavorites()
+  }
+
   return (
     <div className="locator-engine-panel">
-      <div className="engine-tabs">
+      <div className="engine-tabs-row">
+        <div className="engine-tabs">
         {([
           ['summary', 'Locator Summary'],
+          ['favorites', `Favorites (${favorites.length})`],
           ['code', 'Generated Code'],
           ['reliability', 'Reliability'],
           ['compare', 'Compare'],
@@ -231,7 +267,41 @@ export default function LocatorEnginePanel({
             {label}
           </button>
         ))}
+        </div>
+        {onExport && (
+          <button type="button" className="copy-btn engine-export-btn" onClick={onExport} title="Export locators (JSON / CSV / Markdown)">
+            <Download size={14} /> Export
+          </button>
+        )}
       </div>
+
+      {tab === 'favorites' && (
+        <div className="engine-tab-content">
+          {favorites.length === 0 ? (
+            <p className="field-hint">Star locators from Summary to save them here.</p>
+          ) : (
+            favorites.map((f) => (
+              <div key={`${f.id}-${favoriteVersion}`} className="locator-card engine-locator-row">
+                <div className="locator-header">
+                  <span className="locator-name"><Star size={12} className="star-icon" /> {f.display_name}</span>
+                </div>
+                <div className="locator-value mono">{f.value}</div>
+                {(f.element_label || f.screen_label) && (
+                  <div className="locator-meta">
+                    <span className="locator-reason">
+                      {[f.screen_label, f.element_label].filter(Boolean).join(' · ')}
+                    </span>
+                  </div>
+                )}
+                <div className="locator-actions">
+                  <button type="button" className="copy-btn" onClick={() => copyText(f.value)}><Copy size={12} /> Copy</button>
+                  <button type="button" className="copy-btn" onClick={() => { removeFavorite(f.id); refreshFavorites() }}>Remove</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {tab === 'summary' && (
         <div className="engine-tab-content">
@@ -267,6 +337,8 @@ export default function LocatorEnginePanel({
                     }}
                     onValidate={() => validateLocator(loc)}
                     onCopy={() => copyText(loc.value)}
+                    onFavorite={() => handleFavorite(loc)}
+                    favorited={checkFavorite(loc)}
                     validating={validatingKey === key}
                     validation={validations[key]}
                     expanded={expandedRows[key] ?? loc.recommended}
