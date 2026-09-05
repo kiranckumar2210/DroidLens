@@ -8,10 +8,10 @@
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/version-1.0.0-emerald.svg" alt="Version 1.0.0" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/version-2.0.0-emerald.svg" alt="Version 2.0.0" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white" alt="Node.js 18+" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Web%20%7C%20Desktop-34A853?logo=android&logoColor=white" alt="Platform" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20HarmonyOS%20%7C%20Cloud-34A853?logo=android&logoColor=white" alt="Platforms" /></a>
 </p>
 
 <p align="center">
@@ -20,7 +20,9 @@
 
 ---
 
-**DroidLens** is a professional Android UI inspection and automation platform built for **Python uiautomator2**, **Appium**, and modern mobile QA workflows. Inspect live devices, emulators, and offline XML/screenshot dumps — then generate ranked locators, automation scripts, and recorded test flows from a single IDE-style workspace.
+**DroidLens** is a professional **multi-platform** UI inspection and automation platform for **Android**, **iOS**, **HarmonyOS**, and **cloud device farms** — built for **Python uiautomator2**, **Appium**, and modern mobile QA workflows. Inspect live devices, simulators, emulators, and offline XML + PNG packages, then generate ranked locators, automation scripts, and recorded test flows from a single IDE-style workspace.
+
+> **Platform setup:** see the full guide at [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md) for step-by-step instructions per platform.
 
 ---
 
@@ -30,6 +32,7 @@
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Supported platforms](#supported-platforms)
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Testing](#testing)
@@ -75,17 +78,18 @@
 
 | Module | Description |
 |--------|-------------|
-| **Live Inspector** | Real-time UIAutomator dump, screenshot sync, element highlight, hierarchy tree |
-| **Offline Inspector** | Upload XML, screenshot, or both for analysis without a device |
-| **Mock Inspector** | Bundled sample UI for demos, onboarding, and CI |
-| **Device Manager** | USB & WiFi ADB, battery, resolution, orientation, multi-device support |
-| **ADB Control** | Server status, restart, WiFi connect/disconnect |
+| **Live Inspector** | Real-time UI hierarchy + screenshot sync, element highlight, tree navigation |
+| **Multi-platform** | Android (ADB), iOS (Simulator + WDA), HarmonyOS (HDC), cloud Appium hubs |
+| **Offline XML Packages** | UIAutomatorViewer-style workflow — paired `.xml` + `.png` files, drag-and-drop |
+| **Mock Inspector** | Bundled sample UI per platform (Android, iOS, HarmonyOS) for demos and CI |
+| **Device Manager** | Platform picker on Dashboard, USB/WiFi ADB, toolchain status |
+| **Cloud device farm** | BrowserStack, Sauce Labs, or any Appium 2 hub via env configuration |
 
 ### Locator Intelligence
 
 | Module | Description |
 |--------|-------------|
-| **Locator Engine** | Resource-ID, uiautomator2, XPath, UiSelector, content-desc, relative locators |
+| **Locator Engine** | Resource-ID, uiautomator2, XPath, iOS Predicate/Class Chain, accessibility-id |
 | **Scoring & Ranking** | Stability, uniqueness, and maintainability scores |
 | **Custom Locator Builder** | Visual and relative rules with live validation |
 | **Flutter Support** | Widget detection via semantics and content-desc |
@@ -97,7 +101,9 @@
 | **Code Generator** | Python uiautomator2, Appium (multi-language), Page Object Model templates |
 | **Recording Studio** | IDE-style three-pane recorder: screenshot · timeline · Monaco code editor |
 | **Session Manager** | Live session persistence, recovery, and export |
-| **Export** | Script and locator export for framework integration |
+| **Export** | Locator export (JSON/CSV/MD), XML package export, script export |
+| **Offline tools** | XML diff, locator health scan, CI suite validation, migration assistant |
+| **CLI** | `scripts/droidlens.sh` — validate locators in CI without a device ([docs/CLI.md](docs/CLI.md)) |
 
 ### Platform & Distribution
 
@@ -116,12 +122,16 @@
 
 ### Prerequisites
 
-| Requirement | Version |
-|-------------|---------|
-| **Node.js** | 18 or later |
-| **Python** | 3.10 or later |
-| **ADB** | Android platform-tools (for live devices) |
-| **Git** | Any recent version |
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| **Node.js** | 18 or later | Required |
+| **Python** | 3.10 or later | Required |
+| **Git** | Any recent version | Required |
+| **ADB** | Android platform-tools | Live Android devices |
+| **Xcode / simctl** | macOS only | Live iOS Simulator |
+| **WebDriverAgent** | Port 8100 | iOS hierarchy (recommended) |
+| **HDC** | HarmonyOS SDK | Live HarmonyOS devices |
+| **Appium 2 hub** | Optional | Cloud device farm |
 
 ### One-command setup
 
@@ -146,12 +156,22 @@ cd frontend && npm install
 npm install
 ```
 
-### Real device prerequisites
+### Platform prerequisites
 
-1. Enable **Developer options** and **USB debugging** on your Android device
-2. Install [Android platform-tools](https://developer.android.com/studio/releases/platform-tools)
-3. Connect via USB and accept the RSA authorization prompt
-4. Verify with `adb devices`
+| Platform | Toolchain | Quick verify |
+|----------|-----------|--------------|
+| **Android** | USB debugging + [platform-tools](https://developer.android.com/studio/releases/platform-tools) | `adb devices` |
+| **iOS** | macOS, Xcode, WebDriverAgent on `:8100` | `curl http://127.0.0.1:8100/status` |
+| **HarmonyOS** | DevEco HDC on PATH | `hdc list targets` |
+| **Cloud** | Appium 2 hub URL + capabilities JSON | See [Platform Guide](docs/PLATFORM-GUIDE.md#6-cloud-device-farm-appium) |
+
+**Android setup:**
+
+1. Enable **Developer options** and **USB debugging**
+2. Connect via USB and accept the RSA authorization prompt
+3. Verify with `adb devices`
+
+For iOS, HarmonyOS, cloud farms, and offline workflows, see **[`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md)**.
 
 ---
 
@@ -163,15 +183,18 @@ npm install
 # Mock mode — no physical device required
 DROIDLENS_MOCK=true npm run dev
 
-# Real Android device
+# Real device (any platform)
 DROIDLENS_MOCK=false npm run dev
 ```
+
+On the **Dashboard**, pick **Android**, **iOS**, or **HarmonyOS**, select a device, and click **Start Inspection**.
 
 | Service | URL |
 |---------|-----|
 | **Web UI** | http://localhost:5173 |
 | **API docs** | http://127.0.0.1:8765/docs |
 | **Health check** | http://127.0.0.1:8765/health |
+| **Platform status** | http://127.0.0.1:8765/platform/status |
 
 ### Desktop (Electron)
 
@@ -192,6 +215,25 @@ npm run build:electron      # Desktop installers (AppImage, deb, dmg, nsis)
 adb tcpip 5555
 adb connect 192.168.1.100:5555
 ```
+
+---
+
+## Supported platforms
+
+| Platform | Live inspect | Offline XML | Mock sample | Primary locators |
+|----------|:------------:|:-----------:|:-----------:|------------------|
+| **Android** | ✓ ADB | ✓ | ✓ | resource-id, uiautomator2, XPath |
+| **iOS** | ✓ simctl + WDA (macOS) | ✓ | ✓ | accessibility id, predicate, class chain |
+| **HarmonyOS** | ✓ HDC | ✓ | ✓ | resource-id, XPath, accessibility-id |
+| **Cloud (Appium 2)** | ✓ remote hub | — | — | Appium-standard |
+
+**Detailed setup, env vars, troubleshooting, and API examples:**
+
+📖 **[docs/PLATFORM-GUIDE.md](docs/PLATFORM-GUIDE.md)**
+
+**CI / offline validation (no device):**
+
+📖 **[docs/CLI.md](docs/CLI.md)**
 
 ---
 
@@ -216,15 +258,20 @@ flowchart TB
     LOC["Locator Intelligence Engine"]
     CG["Code Generator"]
     REC["Recording Engine"]
-    ADB["ADB Manager"]
+    ADAPT["Platform Adapters"]
+  end
+
+  subgraph Devices["Devices"]
+    AND["Android · ADB"]
+    IOS["iOS · simctl / WDA"]
+    HAR["HarmonyOS · HDC"]
+    CLD["Cloud · Appium 2"]
   end
 
   subgraph Data["Data & Storage"]
     SQLITE["SQLite · ~/.droidlens/"]
     SESS["Session Store"]
   end
-
-  DEV["Android Device / Emulator"]
 
   WEB --> REST
   ELEC --> REST
@@ -235,10 +282,13 @@ flowchart TB
   REST --> REC
   SVC --> LOC
   SVC --> CG
-  SVC --> ADB
+  SVC --> ADAPT
   REC --> LOC
   REC --> CG
-  ADB --> DEV
+  ADAPT --> AND
+  ADAPT --> IOS
+  ADAPT --> HAR
+  ADAPT --> CLD
   SVC --> SQLITE
   REC --> SESS
 ```
@@ -247,11 +297,11 @@ flowchart TB
 
 ```
 backend/inspectiq/
-├── adb/               # Device discovery, screencap, UI dump
-├── adapters/          # Android adapter (production)
+├── adb/               # Android device discovery, screencap, UI dump
+├── adapters/          # Android, iOS, HarmonyOS, cloud Appium, mock
 ├── auth/              # Authentication, licensing, admin, payments
 ├── codegen/           # uiautomator2, Appium, Page Object output
-├── engine/            # Element tree, coordinate hit-testing
+├── engine/            # XML parsers, coordinate hit-testing
 ├── locator/           # Locator generation, ranking, validation
 ├── recording/         # Smart recording engine & code generation
 ├── services/          # Live / offline / mock session orchestration
@@ -269,13 +319,18 @@ See also: [`docs/architecture.md`](docs/architecture.md) · [`docs/PLATFORM-GUID
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DROIDLENS_MOCK` | `true` = mock device, `false` = real ADB | `false` |
+| `DROIDLENS_MOCK` | `true` = mock device, `false` = real devices | `false` |
 | `DROIDLENS_ADB` | Custom path to `adb` binary | system PATH |
+| `DROIDLENS_WDA_URL` | WebDriverAgent URL (iOS) | `http://127.0.0.1:8100` |
+| `DROIDLENS_APPIUM_URL` | Appium 2 hub URL (cloud) | — |
+| `DROIDLENS_APPIUM_CAPABILITIES` | JSON capabilities for cloud sessions | `{}` |
 | `DROIDLENS_PORT` | API port | `8765` |
 | `DROIDLENS_PYTHON` | Python executable for Electron backend | `python3` |
 | `DROIDLENS_ADMIN_EMAIL` | Bootstrap admin account email | — |
 | `DROIDLENS_TRIAL_DAYS` | Default trial duration | `7` |
 | `INSPECTIQ_*` | Legacy env aliases (still supported) | — |
+
+See [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md#11-environment-variables) for the full platform variable reference.
 
 ### Admin system settings
 
@@ -311,8 +366,12 @@ cd backend && DROIDLENS_MOCK=true PYTHONPATH=. python3 -m pytest -v
 
 | Issue | Fix |
 |-------|-----|
-| No devices listed | `adb kill-server && adb start-server`; check USB cable and authorization |
-| UI dump failed | Use Android 8+; unlock the screen; retry after dismissing overlays |
+| No Android devices listed | `adb kill-server && adb start-server`; check USB cable and authorization |
+| iOS unavailable (Linux/Windows) | iOS live requires macOS; use offline XML or mock iOS sample |
+| WDA / iOS dump failed | Start WebDriverAgent; `curl http://127.0.0.1:8100/status` |
+| HarmonyOS device not found | Install HDC; run `hdc list targets` |
+| Cloud device not listed | Set `DROIDLENS_APPIUM_URL` + capabilities; restart backend |
+| UI dump failed | Unlock screen; retry refresh; see [Platform Guide](docs/PLATFORM-GUIDE.md) |
 | Device unauthorized | Accept the RSA fingerprint prompt on the device |
 | Mock mode when expecting real device | Set `DROIDLENS_MOCK=false` before starting |
 | Port 8765 in use | Run `npm run dev:stop` or `bash scripts/stop-backend.sh` |
@@ -325,12 +384,13 @@ cd backend && DROIDLENS_MOCK=true PYTHONPATH=. python3 -m pytest -v
 | Version | Focus |
 |---------|-------|
 | **v1.0** | Android production — live inspect, locator engine, recording studio, auth, admin |
-| **v1.1** | Locator export (JSON/CSV/MD), favorites, session history, package notes, keyboard shortcuts |
+| **v1.1** | Locator export (JSON/CSV/MD), favorites, session history, keyboard shortcuts |
 | **v1.2** | XML diff, Page Object export from recorder, locator health scan |
-| **v1.3** *(current)* | CI locator suite, CLI validation, migration assistant, offline health scan |
-| **v2.0** | iOS adapter, HarmonyOS, cloud device farm integration |
+| **v1.3** | CI locator suite, CLI validation, migration assistant, offline health scan |
+| **v2.0** *(current)* | iOS + HarmonyOS adapters, platform picker, cloud Appium, platform guide |
+| **v2.1** | iOS recording, HarmonyOS locator polish, cloud preset templates in UI |
 
-Full plan: [`docs/roadmap.md`](docs/roadmap.md)
+Full plan: [`docs/roadmap.md`](docs/roadmap.md) · Platform guide: [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md)
 
 ---
 
@@ -348,21 +408,27 @@ Contributions are welcome! Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for:
 ## FAQ
 
 <details>
-<summary><strong>Do I need a physical Android device?</strong></summary>
+<summary><strong>Do I need a physical device?</strong></summary>
 
-No. Use **Mock Inspector** or **Offline Inspector** (upload XML/screenshot) without ADB. Live inspection and recording require a connected device or emulator.
+No. Use **Open Sample Project** (mock data per platform) or **Open XML Package** (offline `.xml` + `.png`) without any toolchain. Live inspection requires the appropriate platform tools (ADB, WDA, HDC, or cloud Appium).
+</details>
+
+<details>
+<summary><strong>Which platforms are supported in v2.0?</strong></summary>
+
+**Android** (ADB), **iOS** (Simulator + WebDriverAgent on macOS), **HarmonyOS** (HDC), and **cloud device farms** (Appium 2). Offline XML packages work for all platforms. See [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md).
 </details>
 
 <details>
 <summary><strong>Which automation frameworks are supported?</strong></summary>
 
-DroidLens generates code for **Python uiautomator2** and **Appium** (multiple languages). Locators include resource-id, UiSelector, XPath, and custom relative strategies.
+DroidLens generates code for **Python uiautomator2** and **Appium** (multiple languages). Locators include resource-id, UiSelector, XPath, iOS Predicate/Class Chain, accessibility-id, and custom relative strategies.
 </details>
 
 <details>
 <summary><strong>Can I use DroidLens without creating an account?</strong></summary>
 
-Yes, for guest features: Mock Inspector, XML Inspector, and Custom Locator Builder. Live device access, recording, and premium modules require sign-in (configurable by administrators).
+Yes, for guest features: Open Sample Project, Open XML Package, and Custom Locator Builder. Live device access, recording, and premium modules require sign-in (configurable by administrators).
 </details>
 
 <details>
@@ -401,8 +467,9 @@ DroidLens builds on and integrates with excellent open-source projects:
 | [React](https://react.dev/) + [Vite](https://vitejs.dev/) | Modern frontend toolchain |
 | [Electron](https://www.electronjs.org/) | Cross-platform desktop shell |
 | [Monaco Editor](https://microsoft.github.io/monaco-editor/) | In-app code editing (Recording Studio) |
-| [Android Debug Bridge (ADB)](https://developer.android.com/tools/adb) | Device communication |
-| [UIAutomator2](https://github.com/openatx/uiautomator2) | Primary automation target framework |
+| [Android Debug Bridge (ADB)](https://developer.android.com/tools/adb) | Android device communication |
+| [WebDriverAgent](https://github.com/appium/WebDriverAgent) | iOS accessibility hierarchy |
+| [UIAutomator2](https://github.com/openatx/uiautomator2) | Primary Android automation target |
 | [Appium](https://appium.io/) | Cross-platform mobile automation |
 | [SQLAlchemy](https://www.sqlalchemy.org/) | Database ORM |
 | [Lucide Icons](https://lucide.dev/) | UI icon set |
@@ -425,7 +492,7 @@ If you have questions, feature requests, bug reports, or collaboration ideas, fe
 
 I'm always interested in discussions around:
 
-* Android Automation
+* Android · iOS · HarmonyOS Automation
 * Appium
 * UIAutomator2
 * Mobile Test Automation Frameworks
