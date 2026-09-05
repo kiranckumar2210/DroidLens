@@ -22,8 +22,8 @@ SAMPLE_B = """<?xml version="1.0" encoding="UTF-8"?>
 def test_xml_diff_detects_changes():
     result = diff_xml(SAMPLE_A, SAMPLE_B)
     assert result.compare_node_count > result.baseline_node_count
-    assert result.added_count >= 1
-    assert result.changed_count >= 1
+    assert len(result.added) >= 1
+    assert len(result.changed) >= 1
 
 
 def test_locator_health_flags_clickable_without_id():
