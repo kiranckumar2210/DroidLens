@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Clock, Database, FileUp, GitCompare, Info, Lock, Monitor, RefreshCw, Settings, ShieldAlert, User,
+  Clock, Database, FileUp, GitCompare, Info, Lock, Monitor, RefreshCw, Settings, ShieldAlert, User, CheckCircle, Wrench,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { isElectron } from '../api/baseUrl'
@@ -16,6 +16,8 @@ import BrandLogo from './BrandLogo'
 import ImportXmlPackageDialog from './ImportXmlPackageDialog'
 import XmlDiffDialog from './XmlDiffDialog'
 import LocatorHealthDialog from './LocatorHealthDialog'
+import LocatorSuiteDialog from './LocatorSuiteDialog'
+import LocatorMigrateDialog from './LocatorMigrateDialog'
 import PremiumGateDialog from './auth/PremiumGateDialog'
 import ThemeSwitcher from './ui/ThemeSwitcher'
 import type { ThemeMode } from '../hooks/useTheme'
@@ -56,6 +58,8 @@ export default function Dashboard({
   const [importOpen, setImportOpen] = useState(false)
   const [diffOpen, setDiffOpen] = useState(false)
   const [healthOpen, setHealthOpen] = useState(false)
+  const [suiteOpen, setSuiteOpen] = useState(false)
+  const [migrateOpen, setMigrateOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
 
   const liveLocked = !canAccess('live_inspection').allowed
@@ -327,6 +331,12 @@ export default function Dashboard({
                 <button type="button" className="btn-secondary card-action" onClick={() => requestFeature('xml_upload', () => setHealthOpen(true))}>
                   <ShieldAlert size={14} /> Locator Health Scan
                 </button>
+                <button type="button" className="btn-secondary card-action" onClick={() => requestFeature('xml_upload', () => setSuiteOpen(true))}>
+                  <CheckCircle size={14} /> Validate Locator Suite
+                </button>
+                <button type="button" className="btn-secondary card-action" onClick={() => requestFeature('xml_upload', () => setMigrateOpen(true))}>
+                  <Wrench size={14} /> Locator Migration
+                </button>
               </div>
             )}
           </article>
@@ -381,6 +391,8 @@ export default function Dashboard({
 
       <XmlDiffDialog open={diffOpen} onClose={() => setDiffOpen(false)} onNotify={onNotify} />
       <LocatorHealthDialog open={healthOpen} onClose={() => setHealthOpen(false)} onNotify={onNotify} />
+      <LocatorSuiteDialog open={suiteOpen} onClose={() => setSuiteOpen(false)} onNotify={onNotify} />
+      <LocatorMigrateDialog open={migrateOpen} onClose={() => setMigrateOpen(false)} onNotify={onNotify} />
 
       <PremiumGateDialog
         open={gateOpen}

@@ -122,6 +122,24 @@ export default function LocatorHealthDialog({
 
         <div className="modal-actions">
           <button type="button" onClick={onClose}>Close</button>
+          {reports.length > 0 && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const blob = new Blob([JSON.stringify({ reports }, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'locator-health-report.json'
+                a.click()
+                URL.revokeObjectURL(url)
+                onNotify?.('Report downloaded', 'success')
+              }}
+            >
+              Export JSON
+            </button>
+          )}
           <button type="button" className="btn-secondary" onClick={() => void scanFolder()} disabled={loading}>
             Scan Folder
           </button>

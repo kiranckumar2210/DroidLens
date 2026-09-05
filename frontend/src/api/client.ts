@@ -425,6 +425,56 @@ export const api = {
       body: JSON.stringify({ xml_content, screen_name }),
     }),
 
+  validateLocatorsOffline: (
+    xml_content: string,
+    locators: unknown,
+    screen_name = 'Screen',
+    require_unique = true,
+  ) =>
+    request<{
+      passed: number
+      failed: number
+      total: number
+      ok: boolean
+      results: Array<{
+        screen: string
+        element_name: string
+        locator_type: string
+        value: string
+        valid: boolean
+        match_count: number
+        error?: string
+        warning?: string
+      }>
+    }>('/offline/validate-locators', {
+      method: 'POST',
+      body: JSON.stringify({ xml_content, locators, screen_name, require_unique }),
+    }),
+
+  locatorMigrate: (old_xml: string, new_xml: string, locator_type: string, locator_value: string) =>
+    request<{
+      status: string
+      message: string
+      old_match_count: number
+      new_match_count: number
+      suggestions: Array<{
+        reason: string
+        element_id: string
+        resource_id?: string
+        class_name: string
+        locators: Array<{
+          locator_type: string
+          value: string
+          display_name: string
+          recommended: boolean
+          overall_score: number
+        }>
+      }>
+    }>('/offline/locator-migrate', {
+      method: 'POST',
+      body: JSON.stringify({ old_xml, new_xml, locator_type, locator_value }),
+    }),
+
   deleteRecordingStep: (session_id: string, step_id: string) =>
     request<import('../recording/types').RecordingSession>(`/recording/${session_id}/steps/${step_id}`, {
       method: 'DELETE',

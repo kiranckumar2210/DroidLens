@@ -171,3 +171,10 @@ export const RELEASE_NOTES_V12 = [
   'Batch folder health scan in desktop app',
   'Recording Studio — export Page Object Model + pytest test file (POM button)',
 ]
+
+export const RELEASE_NOTES_V13 = [
+  'Locator suite validation — JSON format + UI dialog for CI-style checks',
+  'CLI tools: droidlens validate-locators, validate-folder, health-scan',
+  'Locator Migration Assistant — suggest replacements when UI hierarchy changes',
+  'Export health scan reports as JSON',
+]

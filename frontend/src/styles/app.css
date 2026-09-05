@@ -3681,3 +3681,60 @@
 .dashboard-grid .card-action + .card-action {
   margin-top: 8px;
 }
+
+/* v1.3 — locator suite, migration */
+.locator-suite-modal,
+.locator-migrate-modal {
+  max-width: 620px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.suite-actions-row {
+  margin: 8px 0 12px;
+}
+
+.suite-report ul,
+.migrate-results ul {
+  font-size: 12px;
+  list-style: none;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suite-report li.ok { color: #22c55e; }
+.suite-report li.fail { color: #ef4444; }
+
+.migrate-locator-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.migrate-locator-row select {
+  flex-shrink: 0;
+}
+
+.migrate-suggestion {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.migrate-loc-btn {
+  display: block;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.migrate-status.status-ok { color: #22c55e; }
+.migrate-status.status-broken,
+.migrate-status.status-ambiguous { color: #f59e0b; }
+.migrate-status.status-error,
+.migrate-status.status-not_found { color: #ef4444; }

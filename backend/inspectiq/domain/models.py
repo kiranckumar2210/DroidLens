@@ -394,3 +394,17 @@ class LocatorHealthScanRequest(BaseModel):
     xml_content: str
     screen_name: str = "Screen"
 
+
+class LocatorValidateRequest(BaseModel):
+    xml_content: str
+    locators: dict | list
+    screen_name: str = "Screen"
+    require_unique: bool = True
+
+
+class LocatorMigrateRequest(BaseModel):
+    old_xml: str
+    new_xml: str
+    locator_type: str
+    locator_value: str
+

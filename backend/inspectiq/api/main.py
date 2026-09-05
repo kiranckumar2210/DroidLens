@@ -34,6 +34,8 @@ from inspectiq.domain.models import (
     SaveElementRequest,
     XmlDiffRequest,
     LocatorHealthScanRequest,
+    LocatorValidateRequest,
+    LocatorMigrateRequest,
     ScriptFramework,
     ScriptLanguage,
 )
@@ -317,6 +319,36 @@ async def locator_health_scan(req: LocatorHealthScanRequest, _user: AuthUser = D
         return scan_xml_health(req.xml_content, req.screen_name).to_dict()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Health scan failed: {e}")
+
+
+@app.post("/offline/validate-locators")
+async def validate_locators_offline(req: LocatorValidateRequest, _user: AuthUser = Depends(require_premium)):
+    from inspectiq.offline.locator_validate import validate_locators_against_xml
+
+    try:
+        return validate_locators_against_xml(
+            req.xml_content,
+            req.locators,
+            screen_name=req.screen_name,
+            require_unique=req.require_unique,
+        ).to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+
+
+@app.post("/offline/locator-migrate")
+async def locator_migrate(req: LocatorMigrateRequest, _user: AuthUser = Depends(require_premium)):
+    from inspectiq.offline.locator_migrate import migrate_locator
+
+    try:
+        return migrate_locator(
+            req.old_xml,
+            req.new_xml,
+            req.locator_type,
+            req.locator_value,
+        ).to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Migration failed: {e}")
 
 
 @app.get("/session/{device_id}")

@@ -2,29 +2,17 @@
 
 **Product:** DroidLens · **Tagline:** *See. Inspect. Automate.*
 
-## v1.0
+## v1.0 – v1.2
 
-- [x] Android live inspection via ADB
-- [x] Offline XML + screenshot upload
-- [x] Expanded locator intelligence engine
-- [x] Relative locator builder
-- [x] Multi-language code generation
-- [x] Electron desktop with splash + branding
-- [x] UIAutomatorViewer-style XML package import/export
+See git history — live/offline inspection, locator engine, XML packages, export, diff, health scan, recording POM.
 
-## v1.1
+## v1.3 (Current)
 
-- [x] Locator repository export (JSON / CSV / Markdown)
-- [x] Session history and restore (live + offline + mock)
-- [x] Favorites for locators (localStorage)
-- [x] Package notes on offline screens
-- [x] Inspector keyboard shortcuts
-
-## v1.2 (Current)
-
-- [x] XML diff — compare two dumps, highlight added/removed/changed
-- [x] Page Object Model export from Recording Studio
-- [x] Locator health scan (single file, folder batch, current session)
+- [x] Locator suite JSON format for CI
+- [x] CLI: `scripts/droidlens.sh validate-locators`, `validate-folder`, `health-scan`
+- [x] Offline locator validation API + UI
+- [x] Locator Migration Assistant (old/new XML + broken locator → replacements)
+- [x] Health scan report JSON export
 
 ## v2.0
 

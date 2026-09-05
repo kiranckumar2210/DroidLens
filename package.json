@@ -1,6 +1,6 @@
 {
   "name": "droidlens",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "DroidLens — Professional Android UI Inspector for uiautomator2",
   "author": {
@@ -32,6 +32,8 @@
     "build:electron:mac": "npm run build:frontend && npx electron-builder --mac",
     "electron": "npx electron .",
     "test:backend": "cd backend && PYTHONPATH=. python3 -m pytest -v",
+    "cli": "bash scripts/droidlens.sh",
+    "cli:validate": "bash scripts/droidlens.sh validate-locators",
     "generate:icons": "node scripts/run-python.cjs scripts/generate-brand-assets.py",
     "install:all": "bash scripts/install-all.sh"
   },
