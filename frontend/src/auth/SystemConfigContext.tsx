@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: SystemConfig = {
   payment_enabled: false,
   trial_enabled: true,
   guest_access_enabled: true,
-  login_required_for_live: true,
+  login_required_for_live: false,
   trial_days: 7,
   lifetime_price_inr: 199,
   currency: 'INR',

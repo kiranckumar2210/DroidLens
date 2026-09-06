@@ -35,7 +35,7 @@ class SubscriptionSettings(BaseModel):
     subscription_enabled: bool = False
     trial_enabled: bool = True
     guest_access_enabled: bool = True
-    login_required_for_live: bool = True
+    login_required_for_live: bool = False
 
 
 class PaymentSettings(BaseModel):
@@ -85,7 +85,7 @@ class SystemConfigPublic(BaseModel):
     payment_enabled: bool = False
     trial_enabled: bool = True
     guest_access_enabled: bool = True
-    login_required_for_live: bool = True
+    login_required_for_live: bool = False
     trial_days: int = 7
     lifetime_price_inr: int = 199
     currency: str = "INR"

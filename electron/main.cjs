@@ -84,8 +84,10 @@ function startBackend() {
         ...process.env,
         PYTHONPATH: backendDir,
         DROIDLENS_PYTHON: python,
-        DROIDLENS_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
-        DROIDLENS_PORT: BACKEND_PORT,
+      DROIDLENS_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
+      DROIDLENS_FREE_MODE: process.env.DROIDLENS_FREE_MODE || 'true',
+      DROIDLENS_SUBSCRIPTION_ENABLED: process.env.DROIDLENS_SUBSCRIPTION_ENABLED || 'false',
+      DROIDLENS_PORT: BACKEND_PORT,
         INSPECTIQ_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
         INSPECTIQ_PORT: BACKEND_PORT,
       }

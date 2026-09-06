@@ -107,15 +107,17 @@ def _check_feature_enabled(feature_key: Optional[str]) -> None:
 
 
 async def require_premium(
-    user: AuthUser = Depends(require_user),
+    user: Optional[AuthUser] = Depends(optional_user),
     authorization: Optional[str] = Header(None),
     feature: Optional[str] = None,
-) -> AuthUser:
+) -> Optional[AuthUser]:
     _check_feature_enabled(feature)
     settings = get_system_settings_service().get_settings()
     token = _bearer_token(authorization)
     if not settings.subscription.subscription_enabled:
         return user
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     if not _license.has_premium_access(user.id, access_token=token):
         lic = _license.get_license(user.id, access_token=token)
         if lic.status.value == "trial_expired":
@@ -128,7 +130,7 @@ async def require_premium(
 
 
 def require_premium_feature(feature: str) -> Callable:
-    async def _dep(user: AuthUser = Depends(require_user)) -> AuthUser:
+    async def _dep(user: Optional[AuthUser] = Depends(optional_user)) -> Optional[AuthUser]:
         return await require_premium(user=user, feature=feature)
     return _dep
 
@@ -141,7 +143,7 @@ async def require_live_access(
     token = _bearer_token(authorization)
     _check_feature_enabled("live_inspection")
 
-    if settings.subscription.login_required_for_live:
+    if settings.subscription.login_required_for_live and settings.subscription.subscription_enabled:
         if not user:
             raise HTTPException(status_code=401, detail="Authentication required for live device access")
         if user.status == "suspended":

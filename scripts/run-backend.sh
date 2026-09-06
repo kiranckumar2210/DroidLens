@@ -30,4 +30,6 @@ bash "$ROOT/scripts/ensure-backend-port.sh"
 echo "Starting DroidLens backend on http://127.0.0.1:${PORT} ..."
 cd "$ROOT/backend"
 export PYTHONPATH=.
+export DROIDLENS_FREE_MODE="${DROIDLENS_FREE_MODE:-true}"
+export DROIDLENS_SUBSCRIPTION_ENABLED="${DROIDLENS_SUBSCRIPTION_ENABLED:-false}"
 exec "$PYTHON" -m inspectiq.api.main

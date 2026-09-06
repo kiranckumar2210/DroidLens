@@ -19,6 +19,8 @@ fi
 
 export INSPECTIQ_MOCK="${INSPECTIQ_MOCK:-false}"
 export DROIDLENS_MOCK="${DROIDLENS_MOCK:-false}"
+export DROIDLENS_FREE_MODE="${DROIDLENS_FREE_MODE:-true}"
+export DROIDLENS_SUBSCRIPTION_ENABLED="${DROIDLENS_SUBSCRIPTION_ENABLED:-false}"
 
 if [[ -f "$ROOT/scripts/find-python.cjs" ]] && command -v node >/dev/null 2>&1; then
   export DROIDLENS_PYTHON="$(node "$ROOT/scripts/find-python.cjs")"

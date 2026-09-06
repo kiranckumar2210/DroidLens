@@ -44,13 +44,27 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.lower() in ("1", "true", "yes")
 
 
+def _is_free_mode() -> bool:
+    """When true, all features are open — no login, subscription, or payment."""
+    if _env_bool("DROIDLENS_FREE_MODE", default=True):
+        return True
+    if "DROIDLENS_SUBSCRIPTION_ENABLED" in os.environ:
+        return not _env_bool("DROIDLENS_SUBSCRIPTION_ENABLED", default=False)
+    return True
+
+
 def _default_settings() -> SystemSettings:
     cfg = get_auth_config()
-    subscription_on = _env_bool("DROIDLENS_SUBSCRIPTION_ENABLED", default=False)
+    free = _is_free_mode()
     return SystemSettings(
-        subscription=SubscriptionSettings(subscription_enabled=subscription_on),
+        subscription=SubscriptionSettings(
+            subscription_enabled=not free,
+            trial_enabled=not free,
+            guest_access_enabled=True,
+            login_required_for_live=not free,
+        ),
         payment=PaymentSettings(
-            payment_enabled=subscription_on,
+            payment_enabled=False if free else _env_bool("DROIDLENS_SUBSCRIPTION_ENABLED", default=False),
             trial_days=cfg.trial_days,
             lifetime_price_inr=cfg.lifetime_price_inr,
             currency=cfg.currency,
@@ -65,7 +79,19 @@ def _merge_model(default: BaseModel, overrides: dict) -> BaseModel:
 
 
 def _apply_env_overrides(settings: SystemSettings) -> SystemSettings:
-    """When DROIDLENS_SUBSCRIPTION_ENABLED is set, it overrides stored DB settings."""
+    """Env vars override stored DB settings — free mode disables billing and login gates."""
+    if _is_free_mode():
+        sub = settings.subscription.model_copy(
+            update={
+                "subscription_enabled": False,
+                "trial_enabled": False,
+                "guest_access_enabled": True,
+                "login_required_for_live": False,
+            }
+        )
+        pay = settings.payment.model_copy(update={"payment_enabled": False})
+        return settings.model_copy(update={"subscription": sub, "payment": pay})
+
     if "DROIDLENS_SUBSCRIPTION_ENABLED" not in os.environ:
         return settings
     enabled = _env_bool("DROIDLENS_SUBSCRIPTION_ENABLED", default=False)

@@ -101,13 +101,6 @@ export class FeatureAccessManager {
     }
 
     if (systemConfig && !systemConfig.subscription_enabled) {
-      if (!isLoggedIn) {
-        return {
-          allowed: false,
-          reason: 'login_required',
-          message: `${featureLabel(premium)} requires an account. Sign in to continue.`,
-        }
-      }
       return { allowed: true }
     }
 
@@ -165,7 +158,7 @@ export function licenseBadgeText(
   subscriptionEnabled = true,
 ): string | null {
   if (!isLoggedIn || !license) return 'Guest'
-  if (!subscriptionEnabled) return 'Premium'
+  if (!subscriptionEnabled) return 'Free'
   if (license.status === 'lifetime') return 'Lifetime License'
   if (license.status === 'payment_pending') return 'Payment Pending'
   if (license.status === 'trial_active') {
@@ -181,8 +174,7 @@ export function dashboardStatusText(
   subscriptionEnabled = true,
 ): string | null {
   if (!subscriptionEnabled) {
-    if (!isLoggedIn) return null
-    return '✅ Premium Access (Development Mode)'
+    return '✅ Free — all features unlocked'
   }
   if (!isLoggedIn || !license) return '🔒 Premium Locked'
   if (license.status === 'lifetime') return '✅ Lifetime Activated'

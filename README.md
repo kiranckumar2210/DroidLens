@@ -12,6 +12,7 @@
   <a href="#"><img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white" alt="Node.js 18+" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" /></a>
   <a href="#"><img src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20HarmonyOS%20%7C%20Cloud-34A853?logo=android&logoColor=white" alt="Platforms" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/pricing-Free-34A853.svg" alt="Free" /></a>
 </p>
 
 <p align="center">
@@ -22,7 +23,9 @@
 
 **DroidLens** is a professional **multi-platform** UI inspection and automation platform for **Android**, **iOS**, **HarmonyOS**, and **cloud device farms** — built for **Python uiautomator2**, **Appium**, and modern mobile QA workflows. Inspect live devices, simulators, emulators, and offline XML + PNG packages, then generate ranked locators, automation scripts, and recorded test flows from a single IDE-style workspace.
 
-> **Platform setup:** see the full guide at [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md) for step-by-step instructions per platform.
+> **Free service:** DroidLens runs in **free mode** by default — no account, subscription, or payment required. All features (live inspect, offline XML, recording, code export) are unlocked out of the box. Optional sign-in remains available for admin and future cloud sync.
+
+> **Platform setup:** see [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md) for step-by-step instructions per platform.
 
 ---
 
@@ -112,9 +115,9 @@
 | **Web UI** | React + Vite single-page app |
 | **Desktop App** | Electron builds for Linux, macOS, and Windows |
 | **REST + WebSocket API** | FastAPI backend with OpenAPI docs |
-| **Authentication** | Registration, login, trial, and lifetime licensing |
-| **Admin Console** | User management, payments, system settings, feature flags |
-| **Configurable Licensing** | Admin-controlled subscription, trial, payment, and feature toggles |
+| **Authentication** | Optional — accounts for admin; not required for inspection features |
+| **Admin Console** | User management, system settings (enable billing later if needed) |
+| **Configurable Licensing** | Off by default (`DROIDLENS_FREE_MODE=true`); enable trials/payments when ready |
 
 ---
 
@@ -319,6 +322,8 @@ See also: [`docs/architecture.md`](docs/architecture.md) · [`docs/PLATFORM-GUID
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `DROIDLENS_FREE_MODE` | Free service — no login or payment (`true` = all features open) | `true` |
+| `DROIDLENS_SUBSCRIPTION_ENABLED` | Enable trials/licensing (set `false` with free mode) | `false` |
 | `DROIDLENS_MOCK` | `true` = mock device, `false` = real devices | `false` |
 | `DROIDLENS_ADB` | Custom path to `adb` binary | system PATH |
 | `DROIDLENS_WDA_URL` | WebDriverAgent URL (iOS) | `http://127.0.0.1:8100` |
@@ -332,13 +337,27 @@ See also: [`docs/architecture.md`](docs/architecture.md) · [`docs/PLATFORM-GUID
 
 See [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md#11-environment-variables) for the full platform variable reference.
 
+### Free mode (default)
+
+DroidLens ships as a **free, open inspection tool**. No sign-in, trial, or payment is required.
+
+| Variable | Value | Effect |
+|----------|-------|--------|
+| `DROIDLENS_FREE_MODE` | `true` (default) | All features unlocked; live inspect without login |
+| `DROIDLENS_SUBSCRIPTION_ENABLED` | `false` (default) | Billing UI hidden; payment APIs disabled |
+
+To enable paid licensing later (self-hosted):
+
+```bash
+export DROIDLENS_FREE_MODE=false
+export DROIDLENS_SUBSCRIPTION_ENABLED=true
+```
+
+Administrators can also toggle subscription and payment in **Admin → System Settings**.
+
 ### Admin system settings
 
-Administrators can configure licensing, payments, trials, guest access, and per-feature flags at:
-
-**Admin → System Settings → Licensing & Subscription**
-
-When the subscription system is disabled (default for development), all authenticated users receive premium access without code changes.
+Optional accounts and admin tools are available at **Admin → System Settings**. In free mode, subscription and payment toggles have no effect until `DROIDLENS_FREE_MODE=false`.
 
 ### Deploy to Railway (production)
 
@@ -409,6 +428,12 @@ Contributions are welcome! Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for:
 ## FAQ
 
 <details>
+<summary><strong>Do I need an account?</strong></summary>
+
+No. DroidLens is **free by default** — live inspection, offline XML packages, recording, locator export, and code generation work without signing in. Accounts are optional (useful for admin panel access).
+</details>
+
+<details>
 <summary><strong>Do I need a physical device?</strong></summary>
 
 No. Use **Open Sample Project** (mock data per platform) or **Open XML Package** (offline `.xml` + `.png`) without any toolchain. Live inspection requires the appropriate platform tools (ADB, WDA, HDC, or cloud Appium).
@@ -429,7 +454,7 @@ DroidLens generates code for **Python uiautomator2** and **Appium** (multiple la
 <details>
 <summary><strong>Can I use DroidLens without creating an account?</strong></summary>
 
-Yes, for guest features: Open Sample Project, Open XML Package, and Custom Locator Builder. Live device access, recording, and premium modules require sign-in (configurable by administrators).
+Yes. Free mode is the default — every feature is available without registration. Sign-in is optional for administrators or future cloud features.
 </details>
 
 <details>

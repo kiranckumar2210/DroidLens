@@ -11,10 +11,21 @@ TEST_PASSWORD = "SecurePass1"
 
 
 @pytest.fixture
-async def auth_client(tmp_path):
+async def auth_client(tmp_path, paid_licensing_mode):
     db = str(tmp_path / "test_auth.db")
     repo = create_auth_repository(db_path=db)
     dependencies.configure_for_testing(repo)
+    from inspectiq.auth.system_settings_models import SystemSettingsUpdate
+    from inspectiq.auth.system_settings_service import get_system_settings_service
+
+    get_system_settings_service().update_settings(
+        SystemSettingsUpdate(
+            subscription_enabled=True,
+            payment_enabled=True,
+            trial_enabled=True,
+            login_required_for_live=True,
+        )
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

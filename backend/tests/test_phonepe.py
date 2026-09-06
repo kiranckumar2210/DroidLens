@@ -19,7 +19,7 @@ TEST_PASSWORD = "SecurePass1"
 
 
 @pytest.fixture
-def phonepe_env(monkeypatch, tmp_path):
+def phonepe_env(monkeypatch, tmp_path, paid_licensing_mode):
     monkeypatch.setenv("DROIDLENS_PAYMENT_PROVIDER", "phonepe")
     monkeypatch.setenv("PHONEPE_CLIENT_ID", "test-client-id")
     monkeypatch.setenv("PHONEPE_CLIENT_SECRET", "test-client-secret")
@@ -38,6 +38,16 @@ def phonepe_env(monkeypatch, tmp_path):
     db = str(tmp_path / "phonepe_auth.db")
     repo = create_auth_repository(db_path=db)
     dependencies.configure_for_testing(repo)
+    from inspectiq.auth.system_settings_models import SystemSettingsUpdate
+    from inspectiq.auth.system_settings_service import get_system_settings_service
+
+    get_system_settings_service().update_settings(
+        SystemSettingsUpdate(
+            subscription_enabled=True,
+            payment_enabled=True,
+            trial_enabled=True,
+        )
+    )
 
     yield repo
 

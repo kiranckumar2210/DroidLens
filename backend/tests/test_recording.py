@@ -42,9 +42,9 @@ async def _token(client: AsyncClient) -> str:
 
 
 @pytest.mark.asyncio
-async def test_recording_requires_premium(premium_client):
+async def test_recording_start_without_auth_in_free_mode(premium_client):
     r = await premium_client.post("/recording/start", json={"device_id": "emulator-5554"})
-    assert r.status_code == 401
+    assert r.status_code != 401
 
 
 @pytest.mark.asyncio

@@ -232,7 +232,7 @@ async def test_admin_delete_user(admin_client):
 
 
 @pytest.mark.asyncio
-async def test_admin_payments_and_revenue(admin_client):
+async def test_admin_payments_and_revenue(admin_client, paid_licensing_mode):
     client, _repo = admin_client
     await _register(client, ADMIN_EMAIL, "Admin")
     admin_login = await client.post(

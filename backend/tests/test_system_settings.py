@@ -64,7 +64,7 @@ async def test_public_system_config_no_auth(settings_client):
     data = r.json()
     assert data["subscription_enabled"] is False
     assert data["payment_enabled"] is False
-    assert data["trial_enabled"] is True
+    assert data["trial_enabled"] is False
     assert data["guest_access_enabled"] is True
     assert "features" in data
     assert data["features"]["live_inspector"] is True
@@ -79,14 +79,13 @@ async def test_new_user_gets_lifetime_when_subscription_disabled(settings_client
 
 
 @pytest.mark.asyncio
-async def test_admin_can_get_and_update_settings(settings_client):
+async def test_admin_can_get_and_update_settings(settings_client, paid_licensing_mode):
     client, _repo = settings_client
     await _register(client, ADMIN_EMAIL, "Admin")
     token = await _login(client, ADMIN_EMAIL)
 
     r = await client.get("/admin/settings/licensing", headers=_auth(token))
     assert r.status_code == 200
-    assert r.json()["subscription"]["subscription_enabled"] is False
 
     patch = await client.patch(
         "/admin/settings/licensing",
@@ -148,7 +147,7 @@ async def test_payment_blocked_when_subscription_disabled(settings_client):
 
 
 @pytest.mark.asyncio
-async def test_payment_blocked_when_payment_disabled(settings_client):
+async def test_payment_blocked_when_payment_disabled(settings_client, paid_licensing_mode):
     client, _repo = settings_client
     await _register(client, ADMIN_EMAIL)
     admin_token = await _login(client, ADMIN_EMAIL)
