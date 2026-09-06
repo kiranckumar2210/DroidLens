@@ -1,5 +1,5 @@
 const { app, BrowserWindow, shell, dialog, Menu, nativeImage, ipcMain } = require('electron')
-const { spawn } = require('child_process')
+const { spawn, spawnSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const http = require('http')
@@ -19,6 +19,7 @@ let mainWindow = null
 let splashWindow = null
 let backendProcess = null
 let backendSpawnedByElectron = false
+let backendStderrTail = ''
 
 function assetPath(...parts) {
   return path.join(__dirname, '..', 'assets', 'branding', ...parts)
@@ -62,7 +63,7 @@ function cloudApiUrlFromConfig() {
 function startBackend() {
   return new Promise((resolve, reject) => {
     if (isBackendExternal()) {
-      waitForBackend(60, 500)
+      waitForBackend(120, 500)
         .then(() => {
           console.log('[electron] Using existing backend at', BACKEND_URL)
           resolve()
@@ -73,6 +74,7 @@ function startBackend() {
 
     const backendDir = getBackendDir()
     const python = getPythonCommand()
+    ensureBackendDeps(python, backendDir)
     const cloudApiUrl = cloudApiUrlFromConfig()
 
     const env = {
@@ -108,21 +110,33 @@ function startBackend() {
     })
 
     backendProcess.stderr.on('data', (data) => {
-      console.error(`[backend] ${data.toString().trim()}`)
+      const text = data.toString()
+      backendStderrTail = (backendStderrTail + text).slice(-4000)
+      console.error(`[backend] ${text.trim()}`)
     })
 
     backendProcess.on('error', (err) => {
-      reject(new Error(`Failed to start Python backend: ${err.message}`))
+      reject(new Error(`Failed to start Python backend (${python}): ${err.message}`))
     })
 
     backendProcess.on('exit', (code) => {
       if (code !== 0 && code !== null) {
         console.error(`Backend exited with code ${code}`)
+        if (backendStderrTail) {
+          console.error('[backend stderr tail]', backendStderrTail.trim())
+        }
       }
       backendProcess = null
     })
 
-    waitForBackend(30, 500).then(resolve).catch(reject)
+    waitForBackend(120, 500).then(resolve).catch((err) => {
+      const detail = backendStderrTail.trim()
+      if (detail) {
+        reject(new Error(`${err.message}\n\nBackend output:\n${detail.slice(-1200)}`))
+      } else {
+        reject(err)
+      }
+    })
   })
 }
 
@@ -148,11 +162,96 @@ function getBackendDir() {
   return path.join(process.resourcesPath, 'backend')
 }
 
+function versionOk(exe) {
+  try {
+    const r = spawnSync(exe, ['-c', 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)'], {
+      encoding: 'utf8',
+      timeout: 8000,
+      shell: process.platform === 'win32',
+    })
+    return r.status === 0
+  } catch {
+    return false
+  }
+}
+
+function depsOk(exe, backendDir) {
+  try {
+    const r = spawnSync(exe, ['-c', 'import fastapi, uvicorn, sqlalchemy'], {
+      env: { ...process.env, PYTHONPATH: backendDir },
+      encoding: 'utf8',
+      timeout: 15000,
+      shell: process.platform === 'win32',
+    })
+    return r.status === 0
+  } catch {
+    return false
+  }
+}
+
+function resolvePythonCandidates() {
+  const fromEnv = [process.env.DROIDLENS_PYTHON, process.env.INSPECTIQ_PYTHON].filter(Boolean)
+  const names = process.platform === 'win32'
+    ? ['python', 'python3', 'py']
+    : ['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3', 'python']
+  const seen = new Set()
+  const out = []
+  for (const c of [...fromEnv, ...names]) {
+    if (!c || seen.has(c)) continue
+    seen.add(c)
+    out.push(c)
+  }
+  return out
+}
+
 function getPythonCommand() {
   if (process.env.DROIDLENS_PYTHON || process.env.INSPECTIQ_PYTHON) {
     return process.env.DROIDLENS_PYTHON || process.env.INSPECTIQ_PYTHON
   }
+
+  if (process.platform !== 'win32' && IS_DEV) {
+    try {
+      const script = path.join(__dirname, '..', 'scripts', 'find-python.sh')
+      if (fs.existsSync(script)) {
+        const r = spawnSync('bash', [script], { encoding: 'utf8', timeout: 20000 })
+        if (r.status === 0 && r.stdout.trim()) {
+          return r.stdout.trim()
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const backendDir = getBackendDir()
+  let fallback = null
+  for (const exe of resolvePythonCandidates()) {
+    if (!versionOk(exe)) continue
+    fallback = fallback || exe
+    if (depsOk(exe, backendDir)) return exe
+  }
+  if (fallback) return fallback
   return process.platform === 'win32' ? 'python' : 'python3'
+}
+
+function ensureBackendDeps(python, backendDir) {
+  if (depsOk(python, backendDir)) return
+  const req = path.join(backendDir, 'requirements.txt')
+  if (!fs.existsSync(req)) {
+    throw new Error(`Missing ${req}`)
+  }
+  console.log('[electron] Installing Python backend dependencies (first launch may take a minute)...')
+  const r = spawnSync(python, ['-m', 'pip', 'install', '-r', req], {
+    cwd: backendDir,
+    stdio: 'inherit',
+    timeout: 300000,
+    shell: process.platform === 'win32',
+  })
+  if (r.status !== 0) {
+    throw new Error(
+      `Failed to install Python dependencies.\nRun manually:\n  ${python} -m pip install -r backend/requirements.txt`
+    )
+  }
 }
 
 function waitForBackend(maxAttempts, intervalMs) {
@@ -177,7 +276,9 @@ function waitForBackend(maxAttempts, intervalMs) {
     const retry = () => {
       attempts += 1
       if (attempts >= maxAttempts) {
-        reject(new Error('Backend failed to start within timeout'))
+        reject(new Error(
+          `Backend failed to start within timeout (${Math.round(maxAttempts * intervalMs / 1000)}s) at ${BACKEND_URL}/health`
+        ))
         return
       }
       setTimeout(check, intervalMs)
@@ -431,7 +532,7 @@ async function bootstrap() {
     closeSplashWindow()
     dialog.showErrorBox(
       `${APP_NAME} Startup Error`,
-      `${err.message}\n\nEnsure Python 3.10+ is installed and backend dependencies are available:\n  pip install -r backend/requirements.txt`
+      `${err.message}\n\nEnsure Python 3.10+ is installed with backend dependencies:\n  bash scripts/install-all.sh\n\nOr set DROIDLENS_PYTHON to your Python 3.12 path.`
     )
     app.quit()
   }

@@ -375,7 +375,8 @@ cd backend && DROIDLENS_MOCK=true PYTHONPATH=. python3 -m pytest -v
 | Device unauthorized | Accept the RSA fingerprint prompt on the device |
 | Mock mode when expecting real device | Set `DROIDLENS_MOCK=false` before starting |
 | Port 8765 in use | Run `npm run dev:stop` or `bash scripts/stop-backend.sh` |
-| Node version error | Use Node 18+: `nvm install 20 && nvm use 20` |
+| Backend failed to start within timeout | Port 8765 may be blocked — run `bash scripts/ensure-backend-port.sh`. Ensure deps: `bash scripts/install-all.sh`. Set `DROIDLENS_PYTHON=python3.12` if `python3` is an older version without packages. |
+| Wrong Python / missing packages | DroidLens auto-picks Python 3.12+ when available. Force: `export DROIDLENS_PYTHON=$(bash scripts/find-python.sh)` |
 
 ---
 

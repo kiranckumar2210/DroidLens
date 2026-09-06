@@ -3,4 +3,5 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONPATH="$ROOT/backend"
-exec python3 -m inspectiq.cli "$@"
+PYTHON="$("$ROOT/scripts/find-python.sh")"
+exec "$PYTHON" -m inspectiq.cli "$@"

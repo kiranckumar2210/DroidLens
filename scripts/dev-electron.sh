@@ -20,6 +20,11 @@ fi
 export INSPECTIQ_MOCK="${INSPECTIQ_MOCK:-false}"
 export DROIDLENS_MOCK="${DROIDLENS_MOCK:-false}"
 
+if [[ -x "$ROOT/scripts/find-python.sh" ]]; then
+  export DROIDLENS_PYTHON="$("$ROOT/scripts/find-python.sh")"
+  echo "Using Python: $($DROIDLENS_PYTHON --version 2>&1) ($DROIDLENS_PYTHON)"
+fi
+
 echo "Starting DroidLens Desktop (Node $(node -v))..."
 exec npx concurrently -k \
   "npm run dev:backend" \
