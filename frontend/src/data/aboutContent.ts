@@ -147,6 +147,14 @@ export const TECH_STACK = [
   'Modern Material Design UI',
 ]
 
+export const RELEASE_NOTES_V20 = [
+  'Multi-platform support — Android, iOS Simulator, HarmonyOS, and cloud Appium farms',
+  'Platform picker on dashboard with per-platform device validation',
+  'Free service mode by default — all features unlocked, no login or payment required',
+  'Smart Python resolver for reliable backend startup across Python 3.10–3.13',
+  'Backend port cleanup and improved Electron startup diagnostics',
+]
+
 export const RELEASE_NOTES_V1 = [
   'Initial release — Live & offline Android UI inspection',
   'Smart locator engine with reliability scoring',

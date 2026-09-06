@@ -144,7 +144,7 @@ cd DroidLens
 bash scripts/install-all.sh
 ```
 
-This installs Python backend dependencies, frontend packages, and root Electron tooling.
+This installs Python backend dependencies, frontend packages, root Electron tooling, and **generates desktop icons** (`npm run generate:icons`).
 
 ### Manual setup
 
@@ -201,15 +201,45 @@ On the **Dashboard**, pick **Android**, **iOS**, or **HarmonyOS**, select a devi
 
 ### Desktop (Electron)
 
+**Development** — requires Node.js 18+ (Node 20 recommended via nvm):
+
 ```bash
-npm run dev:electron
+export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh" && nvm use 20
+export DROIDLENS_PYTHON=$(node scripts/find-python.cjs)
+DROIDLENS_MOCK=false npm run dev:electron
 ```
+
+**Build installers** (Linux AppImage + deb, Windows `.exe`, macOS `.dmg`):
+
+```bash
+export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh" && nvm use 20
+bash scripts/install-all.sh          # deps + icon generation
+npm run build:electron:linux         # or build:electron / build:electron:win / build:electron:mac
+```
+
+Output: `dist-electron/` — e.g. `DroidLens-2.0.0.AppImage`, `droidlens_2.0.0_amd64.deb`.
+
+**Install on Linux:**
+
+```bash
+# AppImage (portable)
+chmod +x dist-electron/DroidLens-2.0.0.AppImage
+./dist-electron/DroidLens-2.0.0.AppImage
+
+# deb (system menu integration)
+sudo dpkg -i dist-electron/droidlens_2.0.0_amd64.deb
+sudo gtk-update-icon-cache /usr/share/icons/hicolor
+```
+
+Packaged desktop runs **local-only by default** (free mode, no cloud login). For hybrid cloud auth, copy `electron/desktop-config.example.json` → `~/.config/DroidLens/desktop-config.json`. See [`docs/DEPLOY-ELECTRON.md`](docs/DEPLOY-ELECTRON.md).
 
 ### Production build
 
 ```bash
-npm run build:frontend    # Vite production bundle
-npm run build:electron      # Desktop installers (AppImage, deb, dmg, nsis)
+npm run generate:icons      # PNG/ICO from brand assets (runs automatically before electron build)
+npm run build:frontend      # Vite production bundle
+npm run build:electron      # All platforms
+npm run build:electron:linux
 ```
 
 ### WiFi ADB
@@ -395,7 +425,11 @@ cd backend && DROIDLENS_MOCK=true PYTHONPATH=. python3 -m pytest -v
 | Mock mode when expecting real device | Set `DROIDLENS_MOCK=false` before starting |
 | Port 8765 in use | Run `npm run dev:stop` or `bash scripts/stop-backend.sh` |
 | Backend failed to start within timeout | Port 8765 may be blocked — run `bash scripts/ensure-backend-port.sh`. Ensure deps: `bash scripts/install-all.sh`. Set `DROIDLENS_PYTHON=python3.12` if `python3` is an older version without packages. |
-| Wrong Python / missing packages | DroidLens auto-picks Python 3.12+ when available. Force: `export DROIDLENS_PYTHON=$(bash scripts/find-python.sh)` |
+| Wrong Python / missing packages | DroidLens auto-picks Python 3.12+ when available. Force: `export DROIDLENS_PYTHON=$(node scripts/find-python.cjs)` |
+| Desktop shows old v1 UI or version | Stale Electron cache — run `bash scripts/clear-desktop-cache.sh`, then reinstall or rerun the latest AppImage/deb |
+| Desktop icon missing (Linux) | Rebuild after `npm run generate:icons`; for deb run `sudo gtk-update-icon-cache /usr/share/icons/hicolor` |
+| Desktop app won't start (Linux) | Ensure Python 3.10+ and `pip install -r backend/requirements.txt`; check terminal for backend errors |
+| Packaged app uses old cloud auth | Remove `~/.config/DroidLens/desktop-config.json` for local-only free mode |
 
 ---
 
@@ -407,7 +441,7 @@ cd backend && DROIDLENS_MOCK=true PYTHONPATH=. python3 -m pytest -v
 | **v1.1** | Locator export (JSON/CSV/MD), favorites, session history, keyboard shortcuts |
 | **v1.2** | XML diff, Page Object export from recorder, locator health scan |
 | **v1.3** | CI locator suite, CLI validation, migration assistant, offline health scan |
-| **v2.0** *(current)* | iOS + HarmonyOS adapters, platform picker, cloud Appium, platform guide |
+| **v2.0** *(current)* | iOS + HarmonyOS adapters, platform picker, cloud Appium, free service mode, desktop packaging fixes |
 | **v2.1** | iOS recording, HarmonyOS locator polish, cloud preset templates in UI |
 
 Full plan: [`docs/roadmap.md`](docs/roadmap.md) · Platform guide: [`docs/PLATFORM-GUIDE.md`](docs/PLATFORM-GUIDE.md)
@@ -455,6 +489,12 @@ DroidLens generates code for **Python uiautomator2** and **Appium** (multiple la
 <summary><strong>Can I use DroidLens without creating an account?</strong></summary>
 
 Yes. Free mode is the default — every feature is available without registration. Sign-in is optional for administrators or future cloud features.
+</details>
+
+<details>
+<summary><strong>How do I build and install the desktop app?</strong></summary>
+
+Use **Node.js 20+** and run `bash scripts/install-all.sh` then `npm run build:electron:linux`. Install the `.deb` or run the `.AppImage` from `dist-electron/`. If the UI looks outdated after upgrading, run `bash scripts/clear-desktop-cache.sh`. Full guide: [`docs/DEPLOY-ELECTRON.md`](docs/DEPLOY-ELECTRON.md).
 </details>
 
 <details>

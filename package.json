@@ -24,7 +24,8 @@
     "dev:stop": "bash scripts/stop-backend.sh",
     "dev:electron": "bash scripts/dev-electron.sh",
     "build:frontend": "cd frontend && npm run build",
-    "prebuild:electron": "npm run generate:icons",
+    "prebuild:electron": "npm run clean:dist && npm run generate:icons",
+    "clean:dist": "rm -rf dist-electron frontend/dist",
     "build:electron": "npm run build:frontend && npx electron-builder",
     "build:electron:linux": "npm run build:frontend && npx electron-builder --linux",
     "build:electron:deb": "npm run build:frontend && npx electron-builder --linux deb",
@@ -52,7 +53,8 @@
       "output": "dist-electron"
     },
     "asarUnpack": [
-      "frontend/dist/**/*"
+      "frontend/dist/**/*",
+      "assets/branding/**/*"
     ],
     "files": [
       "electron/**/*",
@@ -63,6 +65,11 @@
       "assets/branding/icons/**/*"
     ],
     "extraResources": [
+      {
+        "from": "assets/branding",
+        "to": "branding",
+        "filter": ["**/*", "!**/*.svg"]
+      },
       {
         "from": "backend",
         "to": "backend",
@@ -83,14 +90,19 @@
       "maintainer": "Kiran Kumar C <info.kiranc@gmail.com>",
       "icon": "assets/branding/icons",
       "syncDesktopName": true,
+      "executableName": "droidlens",
       "desktop": {
         "entry": {
           "Name": "DroidLens",
           "Comment": "Professional Android UI Inspector — See. Inspect. Automate.",
           "Categories": "Development;Utility;",
-          "StartupWMClass": "droidlens"
+          "StartupWMClass": "droidlens",
+          "Icon": "droidlens"
         }
       }
+    },
+    "deb": {
+      "afterInstall": "scripts/deb-postinstall.sh"
     },
     "mac": {
       "target": [

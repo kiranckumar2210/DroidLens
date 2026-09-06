@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, User } from 'lucide-react'
 import { api, isElectron } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { getAppVersion } from '../../utils/appInfo'
 import { useSystemConfig } from '../../auth/SystemConfigContext'
 import type { OrderSummary } from '../../auth/types'
 
@@ -86,7 +87,7 @@ export default function AccountPage({ onBack, onOpenSubscription }: Props) {
               />
             </>
           )}
-          <Detail label="App Version" value={isElectron() ? '1.0.0 (Desktop)' : '1.0.0 (Web)'} />
+          <Detail label="App Version" value={`${getAppVersion()} (${isElectron() ? 'Desktop' : 'Web'})`} />
         </div>
 
         {showPaymentUi && orders.length > 0 && (

@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 const pkg = require('../package.json')
 
-const APP_VERSION = pkg.version || '1.0.0'
+const APP_VERSION = pkg.version || '2.0.0'
 const BACKEND_PORT = process.env.DROIDLENS_PORT || process.env.INSPECTIQ_PORT || '8765'
 
 function readCloudApiUrl() {

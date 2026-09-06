@@ -9,7 +9,7 @@ export const APP_COPYRIGHT = '© 2026 Kiran Kumar C. All Rights Reserved.'
 /** Resolve version from Electron bridge, Vite build define, or fallback. */
 export function getAppVersion(): string {
   if (typeof __DROIDLENS_VERSION__ !== 'undefined') return __DROIDLENS_VERSION__
-  return window.droidlens?.version || window.inspectiq?.version || '1.0.0'
+  return window.droidlens?.version || window.inspectiq?.version || '2.0.0'
 }
 
 export function getRuntimeLabel(): string {

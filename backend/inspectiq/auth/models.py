@@ -208,6 +208,6 @@ class PricingResponse(BaseModel):
 class AccountSummary(BaseModel):
     user: AuthUser
     license: LicenseInfo
-    app_version: str = "1.0.0"
+    app_version: str = "2.0.0"
     purchase_history: List[OrderSummary] = Field(default_factory=list)
     license_cache: Optional[str] = None

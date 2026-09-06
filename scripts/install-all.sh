@@ -24,6 +24,7 @@ echo "Installing DroidLens dependencies (Node $(node -v), $("$PYTHON" --version 
 ("$PYTHON" -m pip install -r backend/requirements.txt)
 (cd frontend && npm install)
 npm install
+npm run generate:icons
 
 echo ""
 echo "Done. Python: $PYTHON ($("$PYTHON" --version 2>&1))"

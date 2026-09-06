@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, dialog, Menu, nativeImage, ipcMain } = require('electron')
+const { app, BrowserWindow, shell, dialog, Menu, nativeImage, ipcMain, session } = require('electron')
 const { spawn, spawnSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
@@ -8,7 +8,7 @@ const pkg = require('../package.json')
 
 const APP_NAME = 'DroidLens'
 const APP_TAGLINE = 'See. Inspect. Automate.'
-const APP_VERSION = pkg.version || '1.0.0'
+const APP_VERSION = pkg.version || '2.0.0'
 
 const BACKEND_PORT = process.env.DROIDLENS_PORT || process.env.INSPECTIQ_PORT || '8765'
 const BACKEND_HOST = '127.0.0.1'
@@ -21,16 +21,51 @@ let backendProcess = null
 let backendSpawnedByElectron = false
 let backendStderrTail = ''
 
+function resolvePackagedPath(relativePath) {
+  const normal = path.join(__dirname, '..', relativePath)
+  if (!IS_DEV && normal.includes(`${path.sep}app.asar${path.sep}`)) {
+    const unpacked = normal.replace(
+      `${path.sep}app.asar${path.sep}`,
+      `${path.sep}app.asar.unpacked${path.sep}`
+    )
+    if (fs.existsSync(unpacked)) return unpacked
+  }
+  return normal
+}
+
+function brandingDir() {
+  if (IS_DEV) {
+    return path.join(__dirname, '..', 'assets', 'branding')
+  }
+  const fromResources = path.join(process.resourcesPath, 'branding')
+  if (fs.existsSync(fromResources)) return fromResources
+  return resolvePackagedPath(path.join('assets', 'branding'))
+}
+
 function assetPath(...parts) {
-  return path.join(__dirname, '..', 'assets', 'branding', ...parts)
+  return path.join(brandingDir(), ...parts)
 }
 
 function getAppIcon() {
-  const iconPath = assetPath('icon.png')
-  if (fs.existsSync(iconPath)) {
-    return nativeImage.createFromPath(iconPath)
+  const candidates = [
+    assetPath('icon.png'),
+    assetPath('icons', '256x256.png'),
+    assetPath('icons', '512x512.png'),
+  ]
+  for (const iconPath of candidates) {
+    if (fs.existsSync(iconPath)) {
+      const image = nativeImage.createFromPath(iconPath)
+      if (!image.isEmpty()) return image
+    }
   }
+  console.warn('[electron] App icon not found — checked:', candidates.join(', '))
   return undefined
+}
+
+function iconDataUrl() {
+  const image = getAppIcon()
+  if (!image || image.isEmpty()) return ''
+  return image.toDataURL()
 }
 
 function isBackendExternal() {
@@ -38,10 +73,14 @@ function isBackendExternal() {
 }
 
 function loadDesktopConfig() {
-  const candidates = [
-    path.join(app.getPath('userData'), 'desktop-config.json'),
-    path.join(__dirname, 'desktop-config.json'),
-  ]
+  // Packaged builds: local-only by default (free mode). Cloud auth only if user adds
+  // ~/.config/DroidLens/desktop-config.json (or platform userData equivalent).
+  const candidates = IS_DEV
+    ? [
+        path.join(app.getPath('userData'), 'desktop-config.json'),
+        path.join(__dirname, 'desktop-config.json'),
+      ]
+    : [path.join(app.getPath('userData'), 'desktop-config.json')]
   for (const candidate of candidates) {
     try {
       if (fs.existsSync(candidate)) {
@@ -346,6 +385,7 @@ function createSplashWindow() {
     },
   })
 
+  const splashIcon = iconDataUrl()
   const splashHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -364,9 +404,10 @@ function createSplashWindow() {
     animation:slide 1.2s ease-in-out infinite; }
   @keyframes slide { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
 </style></head><body>
-  <img src="file://${assetPath('icon.png').replace(/\\/g, '/')}" alt="" />
+  ${splashIcon ? `<img src="${splashIcon}" alt="" />` : ''}
   <h1>Droid<span>Lens</span></h1>
   <p>${APP_TAGLINE}</p>
+  <p style="font-size:11px;color:#78909c;margin-top:4px;">v${APP_VERSION}</p>
   <div class="bar"><i></i></div>
 </body></html>`
 
@@ -381,6 +422,18 @@ function closeSplashWindow() {
   }
 }
 
+async function clearDesktopCache() {
+  try {
+    await session.defaultSession.clearCache()
+    await session.defaultSession.clearStorageData({
+      storages: ['cachestorage', 'serviceworkers'],
+    })
+    console.log('[electron] Cleared HTTP cache for desktop session')
+  } catch (err) {
+    console.warn('[electron] Cache clear failed:', err.message)
+  }
+}
+
 function createWindow() {
   const cloudApiUrl = cloudApiUrlFromConfig()
   const extraArgs = cloudApiUrl ? [`--cloud-api-url=${cloudApiUrl}`] : []
@@ -390,7 +443,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: APP_NAME,
+    title: `${APP_NAME} ${APP_VERSION}`,
     icon: getAppIcon(),
     backgroundColor: '#0d1117',
     webPreferences: {
@@ -417,7 +470,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
-    mainWindow.loadURL(`${BACKEND_URL}/`)
+    mainWindow.loadURL(`${BACKEND_URL}/?app=${APP_VERSION}`)
   }
 
   mainWindow.on('closed', () => {
@@ -558,6 +611,7 @@ async function bootstrap() {
   createSplashWindow()
   buildAppMenu()
   try {
+    await clearDesktopCache()
     await startBackend()
     createWindow()
   } catch (err) {
@@ -576,8 +630,16 @@ if (process.platform === 'win32') {
 }
 
 app.whenReady().then(() => {
+  const icon = getAppIcon()
+  // app.setIcon exists on macOS/Windows only — Linux uses BrowserWindow.icon
+  if (icon && !icon.isEmpty() && process.platform !== 'linux') {
+    app.setIcon(icon)
+  }
   registerXmlPackageIpc()
   return bootstrap()
+}).catch((err) => {
+  console.error('[electron] Startup failed:', err)
+  app.quit()
 })
 
 app.on('window-all-closed', () => {

@@ -39,3 +39,4 @@ backend/reports/
 
 # Electron dev
 out/
+electron/desktop-config.json

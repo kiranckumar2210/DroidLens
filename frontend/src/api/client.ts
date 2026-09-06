@@ -75,7 +75,7 @@ export const api = {
   },
 
   health: () =>
-    request<{ status: string; mock_mode: boolean; product: string; adb: AdbStatus }>('/health'),
+    request<{ status: string; version?: string; mock_mode: boolean; product: string; adb: AdbStatus }>('/health'),
 
   adbStatus: () => request<AdbStatus>('/adb/status'),
   adbRestart: () => request<AdbStatus>('/adb/restart', { method: 'POST' }),

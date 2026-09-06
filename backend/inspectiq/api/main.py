@@ -44,6 +44,7 @@ from inspectiq.adb.manager import AdbError
 from inspectiq.services.device_service import DeviceService
 from inspectiq.services.inspection_service import InspectionService
 from inspectiq.services.platform_service import PlatformService
+from inspectiq import __version__ as APP_VERSION
 from inspectiq.storage.database import StorageService
 
 USE_MOCK = os.environ.get("DROIDLENS_MOCK", os.environ.get("INSPECTIQ_MOCK", "")).lower() in ("1", "true", "yes")
@@ -56,7 +57,7 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="DroidLens API",
     description="Professional Android UI Inspector for uiautomator2 automation",
-    version="2.0.0",
+    version=APP_VERSION,
 )
 
 _DESKTOP_CORS_ORIGINS = (
@@ -173,6 +174,7 @@ async def health():
     return {
         "status": "ok",
         "product": "DroidLens",
+        "version": APP_VERSION,
         "mock_mode": USE_MOCK,
         "adb": adb.model_dump(),
     }
@@ -533,13 +535,21 @@ def _mount_frontend_static() -> None:
         logger.warning("No index.html in %s — skipping static mount", static_dir)
         return
 
+    def _static_headers(path: Path) -> dict[str, str]:
+        name = path.name
+        if name == "index.html":
+            return {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+        if name.endswith((".js", ".css")) and "-" in name.rsplit(".", 1)[0]:
+            return {"Cache-Control": "public, max-age=31536000, immutable"}
+        return {"Cache-Control": "no-cache"}
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
         if full_path:
             candidate = root / full_path
             if candidate.is_file():
-                return FileResponse(candidate)
-        return FileResponse(index_html)
+                return FileResponse(candidate, headers=_static_headers(candidate))
+        return FileResponse(index_html, headers=_static_headers(index_html))
 
     logger.info("Serving frontend from %s", root)
 
