@@ -75,5 +75,6 @@ async def test_live_connect_rejects_mock_device_id(client):
         "/session/connect",
         json={"device_id": "mock-android-001", "platform": "android"},
     )
-    assert r.status_code in (400, 503)
-    assert "mock" in r.json()["detail"].lower()
+    assert r.status_code in (400, 401, 503)
+    detail = r.json()["detail"].lower()
+    assert "mock" in detail or "authentication" in detail

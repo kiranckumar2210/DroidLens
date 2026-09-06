@@ -5,7 +5,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${DROIDLENS_PORT:-${INSPECTIQ_PORT:-8765}}"
 
-PYTHON="$("$ROOT/scripts/find-python.sh")"
+if [[ -f "$ROOT/scripts/find-python.cjs" ]] && command -v node >/dev/null 2>&1; then
+  PYTHON="$(node "$ROOT/scripts/find-python.cjs")"
+elif [[ -f "$ROOT/scripts/find-python.sh" ]]; then
+  PYTHON="$(bash "$ROOT/scripts/find-python.sh")"
+else
+  echo "Missing scripts/find-python.cjs or find-python.sh" >&2
+  exit 1
+fi
 export DROIDLENS_PYTHON="$PYTHON"
 
 echo "Using Python: $("$PYTHON" --version 2>&1) ($PYTHON)"

@@ -1,30 +1,36 @@
 #!/usr/bin/env node
-/** Run a Python script with python/python3 depending on platform (CI + local). */
+/** Run a Python module/script using the DroidLens Python resolver. */
 const { spawnSync } = require('child_process')
+const path = require('path')
+const fs = require('fs')
 
 const args = process.argv.slice(2)
 if (args.length === 0) {
-  console.error('Usage: node scripts/run-python.cjs <script.py> [args...]')
+  console.error('Usage: node scripts/run-python.cjs <script.py|-m module> [args...]')
   process.exit(1)
 }
 
-const candidates = [
-  process.env.PYTHON,
-  process.env.DROIDLENS_PYTHON,
-  process.platform === 'win32' ? 'python' : 'python3',
-  'python',
-].filter(Boolean)
-
-let lastError = null
-for (const cmd of [...new Set(candidates)]) {
-  const result = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32' })
-  if (result.error?.code === 'ENOENT') {
-    lastError = result.error
-    continue
+function resolvePython() {
+  if (process.env.DROIDLENS_PYTHON) return process.env.DROIDLENS_PYTHON
+  const root = path.join(__dirname, '..')
+  const cjs = path.join(root, 'scripts', 'find-python.cjs')
+  const sh = path.join(root, 'scripts', 'find-python.sh')
+  if (fs.existsSync(cjs)) {
+    const r = spawnSync('node', [cjs], { encoding: 'utf8' })
+    if (r.status === 0 && r.stdout.trim()) return r.stdout.trim()
   }
-  process.exit(result.status ?? 1)
+  if (fs.existsSync(sh)) {
+    const r = spawnSync('bash', [sh], { encoding: 'utf8' })
+    if (r.status === 0 && r.stdout.trim()) return r.stdout.trim()
+  }
+  return process.platform === 'win32' ? 'python' : 'python3'
 }
 
-console.error('No Python interpreter found. Tried:', candidates.join(', '))
-if (lastError) console.error(lastError.message)
-process.exit(1)
+const python = resolvePython()
+const shell = process.platform === 'win32' && /\s/.test(python)
+const result = spawnSync(python, args, { stdio: 'inherit', shell })
+if (result.error?.code === 'ENOENT') {
+  console.error(`Python interpreter not found: ${python}`)
+  process.exit(1)
+}
+process.exit(result.status ?? 1)

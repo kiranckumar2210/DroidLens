@@ -72,71 +72,94 @@ function startBackend() {
       return
     }
 
-    const backendDir = getBackendDir()
-    const python = getPythonCommand()
-    ensureBackendDeps(python, backendDir)
-    const cloudApiUrl = cloudApiUrlFromConfig()
+    let startupPending = true
 
-    const env = {
-      ...process.env,
-      PYTHONPATH: backendDir,
-      DROIDLENS_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
-      DROIDLENS_PORT: BACKEND_PORT,
-      INSPECTIQ_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
-      INSPECTIQ_PORT: BACKEND_PORT,
-    }
-    if (cloudApiUrl) {
-      env.DROIDLENS_CLOUD_AUTH_URL = cloudApiUrl
-      console.log('[electron] Cloud auth API:', cloudApiUrl)
-    }
+    try {
+      const backendDir = getBackendDir()
+      const python = getPythonCommand()
+      ensureBackendDeps(python, backendDir)
+      const cloudApiUrl = cloudApiUrlFromConfig()
 
-    const staticDir = getStaticDir()
-    env.DROIDLENS_STATIC_DIR = staticDir
-    console.log('[electron] Serving frontend from', staticDir)
-
-    backendProcess = spawn(
-      python,
-      ['-m', 'inspectiq.api.main'],
-      {
-        cwd: backendDir,
-        env,
-        stdio: ['ignore', 'pipe', 'pipe'],
+      const env = {
+        ...process.env,
+        PYTHONPATH: backendDir,
+        DROIDLENS_PYTHON: python,
+        DROIDLENS_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
+        DROIDLENS_PORT: BACKEND_PORT,
+        INSPECTIQ_MOCK: process.env.DROIDLENS_MOCK || process.env.INSPECTIQ_MOCK || 'false',
+        INSPECTIQ_PORT: BACKEND_PORT,
       }
-    )
-    backendSpawnedByElectron = true
+      if (cloudApiUrl) {
+        env.DROIDLENS_CLOUD_AUTH_URL = cloudApiUrl
+        console.log('[electron] Cloud auth API:', cloudApiUrl)
+      }
 
-    backendProcess.stdout.on('data', (data) => {
-      console.log(`[backend] ${data.toString().trim()}`)
-    })
+      const staticDir = getStaticDir()
+      env.DROIDLENS_STATIC_DIR = staticDir
+      console.log('[electron] Python:', python)
+      console.log('[electron] Serving frontend from', staticDir)
 
-    backendProcess.stderr.on('data', (data) => {
-      const text = data.toString()
-      backendStderrTail = (backendStderrTail + text).slice(-4000)
-      console.error(`[backend] ${text.trim()}`)
-    })
-
-    backendProcess.on('error', (err) => {
-      reject(new Error(`Failed to start Python backend (${python}): ${err.message}`))
-    })
-
-    backendProcess.on('exit', (code) => {
-      if (code !== 0 && code !== null) {
-        console.error(`Backend exited with code ${code}`)
-        if (backendStderrTail) {
-          console.error('[backend stderr tail]', backendStderrTail.trim())
+      backendProcess = spawn(
+        python,
+        ['-m', 'inspectiq.api.main'],
+        {
+          cwd: backendDir,
+          env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: process.platform === 'win32' && /\s/.test(python),
         }
-      }
-      backendProcess = null
-    })
+      )
+      backendSpawnedByElectron = true
 
-    waitForBackend(120, 500).then(resolve).catch((err) => {
-      const detail = backendStderrTail.trim()
-      if (detail) {
-        reject(new Error(`${err.message}\n\nBackend output:\n${detail.slice(-1200)}`))
-      } else {
-        reject(err)
-      }
-    })
+      backendProcess.stdout.on('data', (data) => {
+        console.log(`[backend] ${data.toString().trim()}`)
+      })
+
+      backendProcess.stderr.on('data', (data) => {
+        const text = data.toString()
+        backendStderrTail = (backendStderrTail + text).slice(-4000)
+        console.error(`[backend] ${text.trim()}`)
+      })
+
+      backendProcess.on('error', (err) => {
+        startupPending = false
+        reject(new Error(`Failed to start Python backend (${python}): ${err.message}`))
+      })
+
+      backendProcess.on('exit', (code) => {
+        if (startupPending && code !== 0 && code !== null) {
+          startupPending = false
+          const detail = backendStderrTail.trim()
+          reject(new Error(
+            `Backend exited with code ${code} before becoming ready.${detail ? `\n\nBackend output:\n${detail.slice(-1200)}` : ''}`
+          ))
+          return
+        }
+        if (code !== 0 && code !== null) {
+          console.error(`Backend exited with code ${code}`)
+          if (backendStderrTail) {
+            console.error('[backend stderr tail]', backendStderrTail.trim())
+          }
+        }
+        backendProcess = null
+      })
+
+      waitForBackend(120, 500).then(() => {
+        startupPending = false
+        resolve()
+      }).catch((err) => {
+        startupPending = false
+        const detail = backendStderrTail.trim()
+        if (detail) {
+          reject(new Error(`${err.message}\n\nBackend output:\n${detail.slice(-1200)}`))
+        } else {
+          reject(err)
+        }
+      })
+    } catch (err) {
+      startupPending = false
+      reject(err instanceof Error ? err : new Error(String(err)))
+    }
   })
 }
 
@@ -167,7 +190,7 @@ function versionOk(exe) {
     const r = spawnSync(exe, ['-c', 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)'], {
       encoding: 'utf8',
       timeout: 8000,
-      shell: process.platform === 'win32',
+      shell: process.platform === 'win32' && /\s/.test(exe),
     })
     return r.status === 0
   } catch {
@@ -181,7 +204,7 @@ function depsOk(exe, backendDir) {
       env: { ...process.env, PYTHONPATH: backendDir },
       encoding: 'utf8',
       timeout: 15000,
-      shell: process.platform === 'win32',
+      shell: process.platform === 'win32' && /\s/.test(exe),
     })
     return r.status === 0
   } catch {
@@ -192,7 +215,7 @@ function depsOk(exe, backendDir) {
 function resolvePythonCandidates() {
   const fromEnv = [process.env.DROIDLENS_PYTHON, process.env.INSPECTIQ_PYTHON].filter(Boolean)
   const names = process.platform === 'win32'
-    ? ['python', 'python3', 'py']
+    ? ['py -3.13', 'py -3.12', 'py -3.11', 'py -3.10', 'py -3', 'python3', 'python']
     : ['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3', 'python']
   const seen = new Set()
   const out = []
@@ -209,14 +232,21 @@ function getPythonCommand() {
     return process.env.DROIDLENS_PYTHON || process.env.INSPECTIQ_PYTHON
   }
 
-  if (process.platform !== 'win32' && IS_DEV) {
+  const scriptCandidates = [
+    path.join(__dirname, '..', 'scripts', 'find-python.cjs'),
+    path.join(process.resourcesPath || '', 'app.asar', 'scripts', 'find-python.cjs'),
+    path.join(process.resourcesPath || '', 'scripts', 'find-python.cjs'),
+    path.join(__dirname, '..', 'scripts', 'find-python.sh'),
+  ]
+  for (const script of scriptCandidates) {
+    if (!script || !fs.existsSync(script)) continue
     try {
-      const script = path.join(__dirname, '..', 'scripts', 'find-python.sh')
-      if (fs.existsSync(script)) {
-        const r = spawnSync('bash', [script], { encoding: 'utf8', timeout: 20000 })
-        if (r.status === 0 && r.stdout.trim()) {
-          return r.stdout.trim()
-        }
+      const cmd = script.endsWith('.cjs')
+        ? ['node', [script]]
+        : ['bash', [script]]
+      const r = spawnSync(cmd[0], cmd[1], { encoding: 'utf8', timeout: 20000 })
+      if (r.status === 0 && r.stdout.trim()) {
+        return r.stdout.trim()
       }
     } catch {
       /* fall through */
@@ -245,7 +275,7 @@ function ensureBackendDeps(python, backendDir) {
     cwd: backendDir,
     stdio: 'inherit',
     timeout: 300000,
-    shell: process.platform === 'win32',
+    shell: process.platform === 'win32' && /\s/.test(python),
   })
   if (r.status !== 0) {
     throw new Error(
